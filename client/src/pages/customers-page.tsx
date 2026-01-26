@@ -29,8 +29,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, Search, MapPin, Users } from "lucide-react";
-import { Customer, InsertCustomer } from "@shared/schema";
+import { Plus, Loader2, Search, MapPin, Users, Paperclip, Trash2, FileText, Eye, Upload } from "lucide-react";
+import { Customer, InsertCustomer, Attachment } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 const customerSchema = z.object({
   firstName: z.string().min(2, "Fornavn må ha minst 2 tegn"),
@@ -58,12 +59,65 @@ export default function CustomersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
   const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
+  });
+
+  const { data: attachments, isLoading: isLoadingAttachments } = useQuery<Attachment[]>({
+    queryKey: ["/api/customers", selectedCustomer?.id, "attachments"],
+    enabled: !!selectedCustomer,
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${selectedCustomer!.id}/attachments`);
+      if (!res.ok) throw new Error("Kunne ikke hente vedlegg");
+      return res.json();
+    },
+  });
+
+  const createAttachmentMutation = useMutation({
+    mutationFn: async (data: { customerId: string; fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }) => {
+      const res = await apiRequest("POST", `/api/customers/${data.customerId}/attachments`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", selectedCustomer?.id, "attachments"] });
+      toast({
+        title: "Vedlegg lastet opp",
+        description: "Filen er nå tilgjengelig på kundekortet",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Kunne ikke laste opp vedlegg",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: string) => {
+      await apiRequest("DELETE", `/api/attachments/${attachmentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", selectedCustomer?.id, "attachments"] });
+      toast({
+        title: "Vedlegg slettet",
+        description: "Filen er fjernet fra kundekortet",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Kunne ikke slette vedlegg",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const form = useForm<CustomerFormData>({
@@ -153,6 +207,57 @@ export default function CustomersPage() {
       default:
         return <Badge variant="secondary">Venter</Badge>;
     }
+  };
+
+  const openCustomerDetail = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleUploadComplete = async (result: any) => {
+    if (!selectedCustomer || !result.successful?.length) return;
+    
+    for (const file of result.successful) {
+      const objectPath = file.meta?.objectPath || "";
+      if (objectPath) {
+        createAttachmentMutation.mutate({
+          customerId: selectedCustomer.id,
+          fileName: file.name,
+          fileUrl: objectPath,
+          fileSize: file.size,
+          mimeType: file.type,
+        });
+      }
+    }
+  };
+
+  const getUploadParameters = async (file: any) => {
+    const response = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to get upload URL");
+    const data = await response.json();
+    file.meta = file.meta || {};
+    file.meta.objectPath = data.objectPath;
+    return {
+      method: "PUT" as const,
+      url: data.uploadURL,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    };
+  };
+
+  const formatFileSize = (bytes: number | null | undefined) => {
+    if (!bytes) return "-";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const onSubmit = (data: CustomerFormData) => {
@@ -471,6 +576,7 @@ export default function CustomersPage() {
                     <TableHead>Salgsbeløp</TableHead>
                     <TableHead>Provisjon</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Handlinger</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -508,6 +614,17 @@ export default function CustomersPage() {
                       <TableCell>
                         {getStatusBadge(customer.status)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => openCustomerDetail(customer)}
+                          data-testid={`button-view-customer-${customer.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Vis
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -516,6 +633,135 @@ export default function CustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedCustomer?.firstName} {selectedCustomer?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Kundedetaljer og vedlegg
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedCustomer && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Kontakt</h4>
+                  <p>{selectedCustomer.email}</p>
+                  <p>{selectedCustomer.phone}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Adresse</h4>
+                  <p>{selectedCustomer.address}</p>
+                  <p>{selectedCustomer.postalCode} {selectedCustomer.city}</p>
+                  {selectedCustomer.municipality && <p className="text-muted-foreground">{selectedCustomer.municipality}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Status</h4>
+                  {getStatusBadge(selectedCustomer.status)}
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Salgsbeløp</h4>
+                  <p>{selectedCustomer.saleAmount ? `${Number(selectedCustomer.saleAmount).toLocaleString("nb-NO")} kr` : "-"}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Provisjon</h4>
+                  <p>{selectedCustomer.commissionAmount ? `${Number(selectedCustomer.commissionAmount).toLocaleString("nb-NO")} kr` : "-"}</p>
+                </div>
+              </div>
+
+              {selectedCustomer.notes && (
+                <div>
+                  <h4 className="font-semibold text-sm text-muted-foreground mb-1">Notater</h4>
+                  <p className="text-sm">{selectedCustomer.notes}</p>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Vedlegg
+                  </h4>
+                  <ObjectUploader
+                    maxNumberOfFiles={10}
+                    maxFileSize={52428800}
+                    onGetUploadParameters={getUploadParameters}
+                    onComplete={handleUploadComplete}
+                    buttonClassName="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Last opp fil
+                  </ObjectUploader>
+                </div>
+
+                {isLoadingAttachments ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : attachments?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-md">
+                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Ingen vedlegg lastet opp ennå</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments?.map((attachment) => (
+                      <div 
+                        key={attachment.id} 
+                        className="flex items-center justify-between p-3 border rounded-md"
+                        data-testid={`attachment-${attachment.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-sm">{attachment.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(attachment.fileSize)} · {new Date(attachment.uploadedAt).toLocaleDateString("nb-NO")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            data-testid={`button-download-attachment-${attachment.id}`}
+                          >
+                            <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
+                            disabled={deleteAttachmentMutation.isPending}
+                            data-testid={`button-delete-attachment-${attachment.id}`}
+                          >
+                            {deleteAttachmentMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

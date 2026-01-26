@@ -16,6 +16,7 @@ import PayoutsPage from "@/pages/payouts-page";
 import AdminUsersPage from "@/pages/admin-users-page";
 import AdminApprovalsPage from "@/pages/admin-approvals-page";
 import AdminPayoutsPage from "@/pages/admin-payouts-page";
+import ProfilePage from "@/pages/profile-page";
 import { Loader2 } from "lucide-react";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -111,6 +112,9 @@ function Router() {
       </Route>
       <Route path="/payouts">
         <ProtectedPage component={PayoutsPage} />
+      </Route>
+      <Route path="/profile">
+        <ProtectedPage component={ProfilePage} />
       </Route>
       <Route path="/admin/users">
         <AdminPage component={AdminUsersPage} />

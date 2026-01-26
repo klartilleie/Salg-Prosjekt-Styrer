@@ -1,8 +1,9 @@
 import { 
-  users, customers, payouts,
+  users, customers, payouts, attachments,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
-  type Payout, type InsertPayout
+  type Payout, type InsertPayout,
+  type Attachment, type InsertAttachment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -28,10 +29,14 @@ export interface IStorage {
   updateCustomer(id: string, data: Partial<Customer>): Promise<Customer | undefined>;
   
   getPayoutsByUserId(userId: string): Promise<Payout[]>;
-  getAllPayouts(): Promise<(Payout & { user?: { fullName: string; username: string } })[]>;
+  getAllPayouts(): Promise<(Payout & { user?: { fullName: string; username: string; bankAccountNumber?: string | null } })[]>;
   getPayout(id: string): Promise<Payout | undefined>;
   createPayout(payout: InsertPayout): Promise<Payout>;
   updatePayout(id: string, data: Partial<Payout>): Promise<Payout | undefined>;
+  
+  getAttachmentsByCustomerId(customerId: string): Promise<Attachment[]>;
+  createAttachment(attachment: InsertAttachment): Promise<Attachment>;
+  deleteAttachment(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -104,14 +109,14 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(payouts).where(eq(payouts.userId, userId)).orderBy(desc(payouts.createdAt));
   }
 
-  async getAllPayouts(): Promise<(Payout & { user?: { fullName: string; username: string } })[]> {
+  async getAllPayouts(): Promise<(Payout & { user?: { fullName: string; username: string; bankAccountNumber?: string | null } })[]> {
     const allPayouts = await db.select().from(payouts).orderBy(desc(payouts.createdAt));
     const result = [];
     for (const payout of allPayouts) {
       const user = await this.getUser(payout.userId);
       result.push({
         ...payout,
-        user: user ? { fullName: user.fullName, username: user.username } : undefined,
+        user: user ? { fullName: user.fullName, username: user.username, bankAccountNumber: user.bankAccountNumber } : undefined,
       });
     }
     return result;
@@ -130,6 +135,20 @@ export class DatabaseStorage implements IStorage {
   async updatePayout(id: string, data: Partial<Payout>): Promise<Payout | undefined> {
     const [payout] = await db.update(payouts).set(data).where(eq(payouts.id, id)).returning();
     return payout || undefined;
+  }
+
+  async getAttachmentsByCustomerId(customerId: string): Promise<Attachment[]> {
+    return await db.select().from(attachments).where(eq(attachments.customerId, customerId)).orderBy(desc(attachments.uploadedAt));
+  }
+
+  async createAttachment(insertAttachment: InsertAttachment): Promise<Attachment> {
+    const [attachment] = await db.insert(attachments).values(insertAttachment).returning();
+    return attachment;
+  }
+
+  async deleteAttachment(id: string): Promise<boolean> {
+    const result = await db.delete(attachments).where(eq(attachments.id, id)).returning();
+    return result.length > 0;
   }
 }
 

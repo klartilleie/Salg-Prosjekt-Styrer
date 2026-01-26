@@ -32,6 +32,7 @@ import {
   LogOut,
   ChevronUp,
   Award,
+  User,
 } from "lucide-react";
 
 const userMenuItems = [
@@ -49,6 +50,11 @@ const userMenuItems = [
     title: "Utbetalinger",
     url: "/payouts",
     icon: Wallet,
+  },
+  {
+    title: "Profil",
+    url: "/profile",
+    icon: User,
   },
 ];
 

@@ -46,9 +46,20 @@ Protected routes use `requireAuth` middleware, admin routes additionally use `re
 - **Migrations**: Drizzle Kit with `db:push` command
 
 Core entities:
-- **users**: Sales representatives and admins with points/earnings tracking
+- **users**: Sales representatives and admins with points/earnings tracking, phone and bank account number for payouts
 - **customers**: Customer records with approval workflow (pending → approved/rejected)
-- **payouts**: Commission payout requests with approval workflow
+- **payouts**: Commission payout requests with approval workflow, with paidAmount tracking
+- **attachments**: File attachments linked to customers, stored in Replit Object Storage
+
+## Object Storage
+
+- **Service**: Replit Object Storage (Google Cloud Storage backend)
+- **Integration**: server/replit_integrations/object_storage/
+- **Upload Flow**: Presigned URL upload - client requests URL, uploads directly to storage
+- **API Routes**:
+  - POST /api/uploads/request-url - Get presigned upload URL (requires auth)
+  - GET /objects/{*path} - Serve uploaded files
+- **Client Components**: ObjectUploader (Uppy-based modal) and useUpload hook
 
 ## Key Design Decisions
 

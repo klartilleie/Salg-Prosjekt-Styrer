@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
-import { insertCustomerSchema, insertPayoutSchema, insertUserSchema } from "@shared/schema";
+import { insertCustomerSchema, insertPayoutSchema, insertUserSchema, insertAttachmentSchema } from "@shared/schema";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
@@ -26,6 +27,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   setupAuth(app);
+  registerObjectStorageRoutes(app);
 
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
@@ -197,8 +199,10 @@ export async function registerRoutes(
 
   app.post("/api/admin/payouts/:id/complete", requireAdmin, async (req, res) => {
     try {
+      const { paidAmount } = req.body;
       const payout = await storage.updatePayout(req.params.id, {
         status: "completed",
+        paidAmount: paidAmount,
         processedAt: new Date(),
         processedBy: req.user!.id,
       });
@@ -224,6 +228,91 @@ export async function registerRoutes(
       res.json(payout);
     } catch (error) {
       res.status(500).send("Kunne ikke avvise utbetaling");
+    }
+  });
+
+  // Profile routes
+  app.get("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).send("Bruker ikke funnet");
+      }
+      const { password, ...profile } = user;
+      res.json(profile);
+    } catch (error) {
+      res.status(500).send("Kunne ikke hente profil");
+    }
+  });
+
+  app.patch("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const { fullName, email, phone, bankAccountNumber } = req.body;
+      const user = await storage.updateUser(req.user!.id, {
+        fullName,
+        email,
+        phone,
+        bankAccountNumber,
+      });
+      if (!user) {
+        return res.status(404).send("Bruker ikke funnet");
+      }
+      const { password, ...profile } = user;
+      res.json(profile);
+    } catch (error) {
+      res.status(500).send("Kunne ikke oppdatere profil");
+    }
+  });
+
+  // Attachment routes
+  app.get("/api/customers/:id/attachments", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).send("Kunde ikke funnet");
+      }
+      if (customer.userId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).send("Ingen tilgang");
+      }
+      const attachments = await storage.getAttachmentsByCustomerId(req.params.id);
+      res.json(attachments);
+    } catch (error) {
+      res.status(500).send("Kunne ikke hente vedlegg");
+    }
+  });
+
+  app.post("/api/customers/:id/attachments", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).send("Kunde ikke funnet");
+      }
+      if (customer.userId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).send("Ingen tilgang");
+      }
+      const validated = insertAttachmentSchema.parse({
+        ...req.body,
+        customerId: req.params.id,
+      });
+      const attachment = await storage.createAttachment(validated);
+      res.status(201).json(attachment);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).send("Ugyldig data for vedlegg");
+      }
+      res.status(500).send("Kunne ikke lagre vedlegg");
+    }
+  });
+
+  app.delete("/api/attachments/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteAttachment(req.params.id);
+      if (!deleted) {
+        return res.status(404).send("Vedlegg ikke funnet");
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).send("Kunne ikke slette vedlegg");
     }
   });
 

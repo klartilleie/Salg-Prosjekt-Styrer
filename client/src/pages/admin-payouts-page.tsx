@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -22,13 +24,14 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, CheckCircle, XCircle, Clock, Wallet, DollarSign } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, Wallet, DollarSign, CreditCard } from "lucide-react";
 import { Payout } from "@shared/schema";
 
 interface PayoutWithUser extends Payout {
   user?: {
     fullName: string;
     username: string;
+    bankAccountNumber?: string | null;
   };
 }
 
@@ -37,6 +40,7 @@ export default function AdminPayoutsPage() {
   const [selectedPayout, setSelectedPayout] = useState<PayoutWithUser | null>(null);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [paidAmount, setPaidAmount] = useState("");
 
   const { data: payouts, isLoading } = useQuery<PayoutWithUser[]>({
     queryKey: ["/api/admin/payouts"],
@@ -51,14 +55,17 @@ export default function AdminPayoutsPage() {
   ) || 0;
 
   const completeMutation = useMutation({
-    mutationFn: async (payoutId: string) => {
-      const res = await apiRequest("POST", `/api/admin/payouts/${payoutId}/complete`);
+    mutationFn: async ({ payoutId, paidAmount }: { payoutId: string; paidAmount: string }) => {
+      const res = await apiRequest("POST", `/api/admin/payouts/${payoutId}/complete`, {
+        paidAmount: paidAmount,
+      });
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/payouts"] });
       setIsCompleteDialogOpen(false);
       setSelectedPayout(null);
+      setPaidAmount("");
       toast({
         title: "Utbetaling fullført",
         description: "Utbetalingen er merket som fullført",
@@ -273,9 +280,9 @@ export default function AdminPayoutsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Selger</TableHead>
-                    <TableHead>Beløp</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead>Forespurt</TableHead>
+                    <TableHead>Utbetalt</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Behandlet</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -285,14 +292,17 @@ export default function AdminPayoutsPage() {
                       <TableCell className="font-medium">
                         {payout.user?.fullName || "Ukjent"}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="text-muted-foreground">
                         {Number(payout.amount).toLocaleString("nb-NO")} kr
+                      </TableCell>
+                      <TableCell className="font-medium text-green-600">
+                        {payout.paidAmount 
+                          ? `${Number(payout.paidAmount).toLocaleString("nb-NO")} kr`
+                          : "-"
+                        }
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(payout.status)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(payout.createdAt).toLocaleDateString("nb-NO")}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {payout.processedAt 
@@ -309,22 +319,52 @@ export default function AdminPayoutsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
+      <Dialog open={isCompleteDialogOpen} onOpenChange={(open) => {
+        setIsCompleteDialogOpen(open);
+        if (!open) setPaidAmount("");
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Bekreft utbetaling</DialogTitle>
             <DialogDescription>
-              Marker denne utbetalingen som fullført?
+              Oppgi utbetalt beløp og marker som fullført
             </DialogDescription>
           </DialogHeader>
           {selectedPayout && (
-            <div className="py-4">
-              <div className="rounded-lg bg-muted p-4 mb-4">
+            <div className="py-4 space-y-4">
+              <div className="rounded-lg bg-muted p-4">
                 <p className="font-medium">{selectedPayout.user?.fullName}</p>
                 <p className="text-2xl font-bold text-primary mt-2">
-                  {Number(selectedPayout.amount).toLocaleString("nb-NO")} kr
+                  Forespurt: {Number(selectedPayout.amount).toLocaleString("nb-NO")} kr
+                </p>
+                {selectedPayout.user?.bankAccountNumber && (
+                  <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                    <CreditCard className="h-4 w-4" />
+                    <span>Kontonr: {selectedPayout.user.bankAccountNumber}</span>
+                  </div>
+                )}
+                {!selectedPayout.user?.bankAccountNumber && (
+                  <p className="text-sm text-amber-600 mt-3">
+                    Brukeren har ikke oppgitt kontonummer
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="paidAmount">Utbetalt beløp (kr)</Label>
+                <Input
+                  id="paidAmount"
+                  type="number"
+                  placeholder={selectedPayout.amount?.toString() || "0"}
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  data-testid="input-paid-amount"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Oppgi beløpet som faktisk ble utbetalt
                 </p>
               </div>
+
               <DialogFooter>
                 <Button
                   variant="outline"
@@ -333,7 +373,10 @@ export default function AdminPayoutsPage() {
                   Avbryt
                 </Button>
                 <Button 
-                  onClick={() => completeMutation.mutate(selectedPayout.id)}
+                  onClick={() => completeMutation.mutate({
+                    payoutId: selectedPayout.id,
+                    paidAmount: paidAmount || selectedPayout.amount?.toString() || "0",
+                  })}
                   disabled={completeMutation.isPending}
                   data-testid="button-confirm-complete"
                 >
