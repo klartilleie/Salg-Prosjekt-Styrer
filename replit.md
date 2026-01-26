@@ -71,7 +71,7 @@ Core entities:
 - `SESSION_SECRET`: Secret for session encryption
 
 ## Third-Party Services
-- No external APIs currently integrated (address lookup feature in customers page appears to be planned but not connected to an external service)
+- **Kartverket Address API**: Norwegian address lookup via Geonorge (ws.geonorge.no/adresser/v1/sok) for customer address autocompletion. The API is proxied through `/api/address-search` endpoint.
 
 ## Key NPM Dependencies
 - Radix UI primitives for accessible components
