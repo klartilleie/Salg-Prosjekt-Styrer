@@ -1,17 +1,17 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
 import { insertCustomerSchema, insertPayoutSchema, insertUserSchema } from "@shared/schema";
 
-function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.status(401).send("Ikke autorisert");
   }
   next();
 }
 
-function requireAdmin(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
     return res.status(401).send("Ikke autorisert");
   }
@@ -42,7 +42,7 @@ export async function registerRoutes(
       const customer = await storage.createCustomer({
         ...validated,
         userId: req.user!.id,
-      });
+      } as any);
       res.status(201).json(customer);
     } catch (error: any) {
       res.status(400).send(error.message || "Ugyldig data");
@@ -64,7 +64,7 @@ export async function registerRoutes(
       const payout = await storage.createPayout({
         ...validated,
         userId: req.user!.id,
-      });
+      } as any);
       res.status(201).json(payout);
     } catch (error: any) {
       res.status(400).send(error.message || "Ugyldig data");
@@ -142,20 +142,22 @@ export async function registerRoutes(
         return res.status(404).send("Kunde ikke funnet");
       }
 
-      const { commissionAmount, pointsAwarded } = req.body;
+      // Fixed sale amount of 5000 kr and 100 points per approved sale
+      const FIXED_COMMISSION = "5000";
+      const FIXED_POINTS = 100;
       
       const updatedCustomer = await storage.updateCustomer(req.params.id, {
         status: "approved",
-        commissionAmount: commissionAmount,
-        pointsAwarded: parseInt(pointsAwarded),
+        commissionAmount: FIXED_COMMISSION,
+        pointsAwarded: FIXED_POINTS,
         approvedAt: new Date(),
         approvedBy: req.user!.id,
       });
 
       const user = await storage.getUser(customer.userId);
       if (user) {
-        const newPoints = (user.points || 0) + parseInt(pointsAwarded);
-        const newEarnings = parseFloat(user.earnings?.toString() || "0") + parseFloat(commissionAmount);
+        const newPoints = (user.points || 0) + FIXED_POINTS;
+        const newEarnings = parseFloat(user.earnings?.toString() || "0") + parseFloat(FIXED_COMMISSION);
         await storage.updateUser(customer.userId, {
           points: newPoints,
           earnings: newEarnings.toString(),

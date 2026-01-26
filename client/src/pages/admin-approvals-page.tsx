@@ -2,7 +2,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -22,21 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2, CheckCircle, XCircle, Clock, FileText } from "lucide-react";
 import { Customer } from "@shared/schema";
-
-const approvalSchema = z.object({
-  commissionAmount: z.string().min(1, "Provisjon er påkrevd"),
-  pointsAwarded: z.string().min(1, "Poeng er påkrevd"),
-});
-
-type ApprovalFormData = z.infer<typeof approvalSchema>;
 
 interface CustomerWithUser extends Customer {
   user?: {
@@ -58,20 +45,9 @@ export default function AdminApprovalsPage() {
   const pendingCustomers = customers?.filter(c => c.status === "pending") || [];
   const processedCustomers = customers?.filter(c => c.status !== "pending") || [];
 
-  const form = useForm<ApprovalFormData>({
-    resolver: zodResolver(approvalSchema),
-    defaultValues: {
-      commissionAmount: "",
-      pointsAwarded: "100",
-    },
-  });
-
   const approveMutation = useMutation({
-    mutationFn: async (data: { customerId: string } & ApprovalFormData) => {
-      const res = await apiRequest("POST", `/api/admin/customers/${data.customerId}/approve`, {
-        commissionAmount: data.commissionAmount,
-        pointsAwarded: parseInt(data.pointsAwarded),
-      });
+    mutationFn: async (customerId: string) => {
+      const res = await apiRequest("POST", `/api/admin/customers/${customerId}/approve`, {});
       return await res.json();
     },
     onSuccess: () => {
@@ -79,10 +55,9 @@ export default function AdminApprovalsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setIsApproveDialogOpen(false);
       setSelectedCustomer(null);
-      form.reset();
       toast({
         title: "Salg godkjent",
-        description: "Salget er godkjent og provisjon er tildelt",
+        description: "Salget er godkjent. 5 000 kr og 100 poeng er tildelt selger.",
       });
     },
     onError: (error: Error) => {
@@ -119,10 +94,6 @@ export default function AdminApprovalsPage() {
 
   const openApproveDialog = (customer: CustomerWithUser) => {
     setSelectedCustomer(customer);
-    const suggestedCommission = customer.saleAmount 
-      ? (Number(customer.saleAmount) * 0.1).toFixed(2) 
-      : "";
-    form.setValue("commissionAmount", suggestedCommission);
     setIsApproveDialogOpen(true);
   };
 
@@ -131,12 +102,9 @@ export default function AdminApprovalsPage() {
     setIsRejectDialogOpen(true);
   };
 
-  const onApprove = (data: ApprovalFormData) => {
+  const onApprove = () => {
     if (!selectedCustomer) return;
-    approveMutation.mutate({
-      customerId: selectedCustomer.id,
-      ...data,
-    });
+    approveMutation.mutate(selectedCustomer.id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -336,7 +304,7 @@ export default function AdminApprovalsPage() {
           <DialogHeader>
             <DialogTitle>Godkjenn salg</DialogTitle>
             <DialogDescription>
-              Sett provisjon og poeng for dette salget
+              Ved godkjenning tildeles selger 5 000 kr og 100 poeng
             </DialogDescription>
           </DialogHeader>
           {selectedCustomer && (
@@ -346,72 +314,37 @@ export default function AdminApprovalsPage() {
                   {selectedCustomer.firstName} {selectedCustomer.lastName}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Salgsbeløp: {selectedCustomer.saleAmount 
-                    ? `${Number(selectedCustomer.saleAmount).toLocaleString("nb-NO")} kr`
-                    : "Ikke oppgitt"
-                  }
+                  Selger: {selectedCustomer.user?.fullName || "Ukjent"}
                 </p>
               </div>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onApprove)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="commissionAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Provisjon (kr)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            step="0.01"
-                            placeholder="1000" 
-                            data-testid="input-commission"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="pointsAwarded"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Poeng</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="100" 
-                            data-testid="input-points"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsApproveDialogOpen(false)}
-                    >
-                      Avbryt
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={approveMutation.isPending}
-                      data-testid="button-confirm-approve"
-                    >
-                      {approveMutation.isPending && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      Godkjenn salg
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
+              <div className="rounded-lg border p-4 mb-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Provisjon:</span>
+                  <span className="font-medium text-green-600">5 000 kr</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Poeng:</span>
+                  <span className="font-medium text-primary">100 poeng</span>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsApproveDialogOpen(false)}
+                >
+                  Avbryt
+                </Button>
+                <Button 
+                  onClick={onApprove}
+                  disabled={approveMutation.isPending}
+                  data-testid="button-confirm-approve"
+                >
+                  {approveMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Godkjenn salg
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
