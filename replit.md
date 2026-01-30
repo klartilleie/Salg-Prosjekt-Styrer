@@ -74,11 +74,12 @@ Core entities:
 # External Dependencies
 
 ## Database
-- PostgreSQL (required, connection via `DATABASE_URL` environment variable)
+- PostgreSQL hosted on Render (external database)
+- Connection via `salg_db` environment variable (falls back to `DATABASE_URL` if not set)
 - connect-pg-simple for session storage
 
 ## Environment Variables Required
-- `DATABASE_URL`: PostgreSQL connection string
+- `salg_db`: External PostgreSQL connection string (Render database)
 - `SESSION_SECRET`: Secret for session encryption
 
 ## Third-Party Services

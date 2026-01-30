@@ -40,3 +40,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_auth_all_persistance:1.0.0", "javascript_object_storage:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+salg_db = "postgresql://salg_db_user:heTVRDcke3N05irTpsTllIQ7jsKicLYz@dpg-d5u7o1ogjchc73bgfra0-a.frankfurt-postgres.render.com/salg_db"

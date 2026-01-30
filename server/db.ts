@@ -4,11 +4,17 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
+// Use external database (salg_db) if available, otherwise fall back to DATABASE_URL
+const connectionString = process.env.salg_db || process.env.DATABASE_URL;
+
+if (!connectionString) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "Database connection string must be set. Did you forget to provision a database?",
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ 
+  connectionString,
+  ssl: process.env.salg_db ? { rejectUnauthorized: false } : undefined
+});
 export const db = drizzle(pool, { schema });
