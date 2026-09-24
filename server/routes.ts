@@ -70,6 +70,7 @@ export async function registerRoutes(
     postalCode: z.string().regex(/^\d{4}$/),
     city: z.string().trim().min(2),
     municipality: z.string().trim().optional(),
+    saleAmount: z.string().trim().optional(),
     notes: z.string().trim().min(2).max(2000),
   });
 
@@ -95,6 +96,7 @@ export async function registerRoutes(
       await storage.createCustomer({
         ...validated,
         municipality: validated.municipality || null,
+        saleAmount: validated.saleAmount || null,
         userId,
         source: "web",
         status: "pending",

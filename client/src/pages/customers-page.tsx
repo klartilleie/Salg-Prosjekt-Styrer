@@ -245,7 +245,7 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="text-customers-title">Tilbud</h1>
+          <h1 className="text-3xl font-bold" data-testid="text-customers-title">Kunder</h1>
           <p className="text-muted-foreground mt-1">
             Administrer dine kunder og se status på prosjekter
           </p>
@@ -520,7 +520,7 @@ export default function CustomersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tilbudsoversikt</CardTitle>
+          <CardTitle>Kundeoversikt</CardTitle>
           <CardDescription>
             Alle dine registrerte kunder og deres status
           </CardDescription>
@@ -535,8 +535,8 @@ export default function CustomersPage() {
           ) : customers?.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-1">Ingen tilbud ennå</h3>
-              <p className="mb-4">Registrer det første tilbudet, eller ta imot et fra nettsiden</p>
+              <h3 className="text-lg font-medium mb-1">Ingen kunder ennå</h3>
+              <p className="mb-4">Kom i gang ved å registrere din første kunde. Salgsbeløp, provisjon på 5 000 kr og 100 poeng ligger i skjemaet.</p>
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Registrer kunde
