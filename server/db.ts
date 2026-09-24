@@ -53,6 +53,7 @@ export async function ensureSchema() {
       points_awarded integer DEFAULT 0,
       commission_amount numeric(10, 2),
       notes text,
+      source text NOT NULL DEFAULT 'app',
       created_at timestamp NOT NULL DEFAULT now(),
       approved_at timestamp,
       approved_by varchar REFERENCES users(id)
@@ -88,5 +89,7 @@ export async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" (expire);
+
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'app';
   `);
 }

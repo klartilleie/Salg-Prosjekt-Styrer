@@ -39,6 +39,7 @@ export const customers = pgTable("customers", {
   pointsAwarded: integer("points_awarded").default(0),
   commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  source: text("source").notNull().default("app"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
   approvedBy: varchar("approved_by").references(() => users.id),
@@ -113,6 +114,7 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   pointsAwarded: true,
   commissionAmount: true,
   status: true,
+  source: true,
 });
 
 export const insertPayoutSchema = createInsertSchema(payouts).omit({

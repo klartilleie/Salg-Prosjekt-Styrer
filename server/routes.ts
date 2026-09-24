@@ -7,6 +7,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
@@ -57,6 +58,50 @@ export async function registerRoutes(
       res.json(customers);
     } catch (error) {
       res.status(500).send("Kunne ikke hente kunder");
+    }
+  });
+
+  const quoteSchema = z.object({
+    firstName: z.string().trim().min(2),
+    lastName: z.string().trim().min(2),
+    email: z.string().trim().email(),
+    phone: z.string().trim().min(8),
+    address: z.string().trim().min(5),
+    postalCode: z.string().regex(/^\d{4}$/),
+    city: z.string().trim().min(2),
+    municipality: z.string().trim().optional(),
+    notes: z.string().trim().min(2).max(2000),
+  });
+
+  async function websiteInboxUserId() {
+    const username = "nettside";
+    const existing = await storage.getUserByUsername(username);
+    if (existing) return existing.id;
+    const user = await storage.createUser({
+      username,
+      password: await hashPassword(randomUUID()),
+      fullName: "Nettside",
+      email: "nettside@lokal",
+      role: "user",
+    });
+    await storage.updateUser(user.id, { isActive: false });
+    return user.id;
+  }
+
+  app.post("/api/quotes", async (req, res) => {
+    try {
+      const validated = quoteSchema.parse(req.body);
+      const userId = await websiteInboxUserId();
+      await storage.createCustomer({
+        ...validated,
+        municipality: validated.municipality || null,
+        userId,
+        source: "web",
+        status: "pending",
+      } as any);
+      res.status(201).json({ ok: true });
+    } catch (error: any) {
+      res.status(400).send(error.message || "Ugyldig tilbud");
     }
   });
 

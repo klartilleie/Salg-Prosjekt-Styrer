@@ -37,23 +37,23 @@ import {
 
 const userMenuItems = [
   {
-    title: "Dashboard",
-    url: "/",
+    title: "Oversikt",
+    url: "/app",
     icon: LayoutDashboard,
   },
   {
-    title: "Kunder",
-    url: "/customers",
+    title: "Tilbud",
+    url: "/app/tilbud",
     icon: Users,
   },
   {
     title: "Utbetalinger",
-    url: "/payouts",
+    url: "/app/utbetalinger",
     icon: Wallet,
   },
   {
     title: "Profil",
-    url: "/profile",
+    url: "/app/profil",
     icon: User,
   },
 ];
@@ -61,17 +61,17 @@ const userMenuItems = [
 const adminMenuItems = [
   {
     title: "Godkjenninger",
-    url: "/admin/approvals",
+    url: "/app/admin/godkjenninger",
     icon: CheckSquare,
   },
   {
     title: "Brukere",
-    url: "/admin/users",
+    url: "/app/admin/brukere",
     icon: UserCog,
   },
   {
     title: "Utbetalinger",
-    url: "/admin/payouts",
+    url: "/app/admin/utbetalinger",
     icon: CreditCard,
   },
 ];
@@ -99,8 +99,8 @@ export function AppSidebar() {
             <Building2 className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <span className="font-bold text-lg">SalesCRM</span>
-            <p className="text-xs text-sidebar-foreground/60">Salgssystem</p>
+            <span className="font-bold text-lg">Tilbud</span>
+            <p className="text-xs text-sidebar-foreground/60">App</p>
           </div>
         </div>
       </SidebarHeader>

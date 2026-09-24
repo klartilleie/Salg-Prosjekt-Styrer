@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smarthjem-booking-v1';
+const CACHE_NAME = 'tilbud-v2';
 const urlsToCache = [
   '/',
   '/manifest.json'

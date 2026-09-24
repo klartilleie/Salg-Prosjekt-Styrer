@@ -51,7 +51,7 @@ export default function AuthPage() {
   });
 
   if (user) {
-    setLocation("/");
+    setLocation("/app");
     return null;
   }
 
@@ -75,11 +75,11 @@ export default function AuthPage() {
               <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
                 <Building2 className="h-6 w-6 text-primary-foreground" />
               </div>
-              <span className="text-2xl font-bold">SalesCRM</span>
+              <span className="text-2xl font-bold">Tilbud</span>
             </div>
-            <CardTitle className="text-2xl">Velkommen tilbake</CardTitle>
+            <CardTitle className="text-2xl">Åpne appen</CardTitle>
             <CardDescription>
-              Logg inn for å administrere dine kunder og prosjekter
+              Logg inn for å følge opp tilbud fra nettsiden
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -237,10 +237,10 @@ export default function AuthPage() {
       <div className="hidden lg:flex flex-1 bg-sidebar text-sidebar-foreground p-12 flex-col justify-center">
         <div className="max-w-lg">
           <h1 className="text-4xl font-bold mb-6">
-            Administrer salg og kunder på en enkel måte
+            Følg opp tilbudene i appen
           </h1>
           <p className="text-lg text-sidebar-foreground/80 mb-8">
-            SalesCRM hjelper deg med å holde oversikt over kunder, prosjekter og inntekter. 
+            Appen samler tilbudene fra nettsiden, egne registreringer og utbetalinger.
             Få poeng og bonus for hvert godkjent salg.
           </p>
           
