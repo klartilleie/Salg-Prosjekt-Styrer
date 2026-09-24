@@ -7,7 +7,8 @@ const { Pool } = pg;
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL must be set");
+  console.error("Startup failed: DATABASE_URL is missing on the Web Service.");
+  process.exit(1);
 }
 
 const useSsl =
