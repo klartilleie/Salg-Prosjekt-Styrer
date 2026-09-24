@@ -62,16 +62,30 @@ export async function registerRoutes(
   });
 
   const quoteSchema = z.object({
-    firstName: z.string().trim().min(2),
-    lastName: z.string().trim().min(2),
-    email: z.string().trim().email(),
-    phone: z.string().trim().min(8),
-    address: z.string().trim().min(5),
+    customerName: z.string().trim().min(2),
+    customerEmail: z.string().trim().email(),
+    customerPhone: z.string().trim().min(8),
+    customerAddress: z.string().trim().min(5),
     postalCode: z.string().regex(/^\d{4}$/),
     city: z.string().trim().min(2),
     municipality: z.string().trim().optional(),
-    saleAmount: z.string().trim().optional(),
-    notes: z.string().trim().min(2).max(2000),
+    biocleanerModel: z.string().trim().min(1),
+    biocleanerType: z.string().trim().min(1),
+    numberOfHomes: z.string().trim().min(1),
+    biocleanerPrice: z.number(),
+    styreskapSize: z.string(),
+    styreskapPrice: z.number(),
+    utehus: z.string(),
+    utehusPrice: z.number(),
+    soknadUtslippPrice: z.number(),
+    soknadDispensasjonPrice: z.number(),
+    innreguleringPrice: z.number(),
+    gravingPrice: z.number(),
+    fraktPrice: z.number(),
+    offerComments: z.string().max(2000).optional(),
+    offerSum: z.number(),
+    offerMva: z.number(),
+    offerTotal: z.number(),
   });
 
   async function websiteInboxUserId() {
@@ -93,10 +107,36 @@ export async function registerRoutes(
     try {
       const validated = quoteSchema.parse(req.body);
       const userId = await websiteInboxUserId();
+      const [firstName, ...rest] = validated.customerName.split(/\s+/);
+      const modelName = validated.biocleanerModel.toUpperCase();
+      const notes = [
+        `Tilbud på Biocleaner ${modelName} ${validated.biocleanerType}`,
+        `Antall boliger/hytter: ${validated.numberOfHomes}`,
+        `Renseanlegg: ${validated.biocleanerPrice} kr`,
+        `Styreskap ${validated.styreskapSize}: ${validated.styreskapPrice} kr`,
+        `Utehus: ${validated.utehus} (${validated.utehusPrice} kr)`,
+        `Søknad utslipp: ${validated.soknadUtslippPrice} kr`,
+        `Søknad dispensasjon: ${validated.soknadDispensasjonPrice} kr`,
+        `Innregulering: ${validated.innreguleringPrice} kr`,
+        `Graving: ${validated.gravingPrice} kr`,
+        `Frakt: ${validated.fraktPrice} kr`,
+        `Sum: ${validated.offerSum} kr`,
+        `Mva: ${validated.offerMva} kr`,
+        `FRA-total: ${validated.offerTotal} kr`,
+        `TIL-total inkl. avsetning: ${validated.offerTotal + 20000} kr`,
+        validated.offerComments ? `Kommentar: ${validated.offerComments}` : "",
+      ].filter(Boolean).join("\n");
       await storage.createCustomer({
-        ...validated,
+        firstName,
+        lastName: rest.join(" ") || "-",
+        email: validated.customerEmail,
+        phone: validated.customerPhone,
+        address: validated.customerAddress,
+        postalCode: validated.postalCode,
+        city: validated.city,
         municipality: validated.municipality || null,
-        saleAmount: validated.saleAmount || null,
+        saleAmount: String(validated.offerTotal),
+        notes,
         userId,
         source: "web",
         status: "pending",

@@ -105,25 +105,11 @@ function AdminPage({ component: Component }: { component: () => React.JSX.Elemen
 }
 
 function HomePage() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (user) {
-    return (
-      <AppLayout>
-        <DashboardPage />
-      </AppLayout>
-    );
-  }
-
   return <WebsitePage />;
+}
+
+function AppQuotePage() {
+  return <WebsitePage embedded />;
 }
 
 function Router() {
@@ -138,6 +124,9 @@ function Router() {
         <ProtectedPage component={DashboardPage} />
       </Route>
       <Route path="/app/tilbud">
+        <ProtectedPage component={AppQuotePage} />
+      </Route>
+      <Route path="/app/kunder">
         <ProtectedPage component={CustomersPage} />
       </Route>
       <Route path="/app/utbetalinger">
@@ -156,7 +145,7 @@ function Router() {
         <AdminPage component={AdminPayoutsPage} />
       </Route>
       <Route path="/customers">
-        <Redirect to="/app/tilbud" />
+        <Redirect to="/app/kunder" />
       </Route>
       <Route path="/payouts">
         <Redirect to="/app/utbetalinger" />

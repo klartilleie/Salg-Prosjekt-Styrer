@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Building2,
+  Calculator,
   LayoutDashboard,
   Users,
   Wallet,
@@ -44,6 +45,11 @@ const userMenuItems = [
   {
     title: "Tilbud",
     url: "/app/tilbud",
+    icon: Calculator,
+  },
+  {
+    title: "Kunder",
+    url: "/app/kunder",
     icon: Users,
   },
   {
