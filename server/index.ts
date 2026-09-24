@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedAdminUser } from "./seed";
+import { ensureSchema } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,8 +62,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+  await ensureSchema();
   await registerRoutes(httpServer, app);
-  
+
   await seedAdminUser();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
@@ -97,10 +100,14 @@ app.use((req, res, next) => {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       log(`serving on port ${port}`);
     },
   );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Startup failed:", message);
+    process.exit(1);
+  }
 })();

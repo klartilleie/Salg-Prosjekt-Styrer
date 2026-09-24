@@ -31,8 +31,15 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
 
-  const uploadDir = process.env.UPLOAD_DIR || path.resolve(process.cwd(), "uploads");
-  fs.mkdirSync(uploadDir, { recursive: true });
+  const preferredUploadDir = process.env.UPLOAD_DIR || path.resolve(process.cwd(), "uploads");
+  let uploadDir = preferredUploadDir;
+  try {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  } catch (error) {
+    uploadDir = path.resolve("/tmp/uploads");
+    fs.mkdirSync(uploadDir, { recursive: true });
+    console.warn(`Upload directory ${preferredUploadDir} is not writable. Using ${uploadDir}.`);
+  }
   const upload = multer({
     storage: multer.diskStorage({
       destination: uploadDir,
