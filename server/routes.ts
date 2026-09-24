@@ -2,8 +2,11 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
-import { insertCustomerSchema, insertPayoutSchema, insertUserSchema, insertAttachmentSchema } from "@shared/schema";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { insertCustomerSchema, insertPayoutSchema, insertUserSchema } from "@shared/schema";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { randomUUID } from "crypto";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
@@ -27,7 +30,19 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   setupAuth(app);
-  registerObjectStorageRoutes(app);
+
+  const uploadDir = process.env.UPLOAD_DIR || path.resolve(process.cwd(), "uploads");
+  fs.mkdirSync(uploadDir, { recursive: true });
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: uploadDir,
+      filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname).slice(0, 16).replace(/[^.a-zA-Z0-9]/g, "");
+        cb(null, `${randomUUID()}${ext}`);
+      },
+    }),
+    limits: { fileSize: 20 * 1024 * 1024 },
+  });
 
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
@@ -281,34 +296,64 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/customers/:id/attachments", requireAuth, async (req, res) => {
+  app.post("/api/customers/:id/attachments", requireAuth, upload.single("file"), async (req, res) => {
     try {
-      const customer = await storage.getCustomer(req.params.id);
+      const customerId = String(req.params.id);
+      const customer = await storage.getCustomer(customerId);
       if (!customer) {
         return res.status(404).send("Kunde ikke funnet");
       }
       if (customer.userId !== req.user!.id && req.user!.role !== "admin") {
         return res.status(403).send("Ingen tilgang");
       }
-      const validated = insertAttachmentSchema.parse({
-        ...req.body,
-        customerId: req.params.id,
+      if (!req.file) {
+        return res.status(400).send("Ingen fil ble sendt");
+      }
+      const attachment = await storage.createAttachment({
+        customerId,
+        fileName: req.file.originalname,
+        fileUrl: `/api/files/${req.file.filename}`,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
       });
-      const attachment = await storage.createAttachment(validated);
       res.status(201).json(attachment);
     } catch (error: any) {
-      if (error.name === "ZodError") {
-        return res.status(400).send("Ugyldig data for vedlegg");
-      }
       res.status(500).send("Kunne ikke lagre vedlegg");
+    }
+  });
+
+  app.get("/api/files/:filename", requireAuth, async (req, res) => {
+    try {
+      const filename = path.basename(String(req.params.filename));
+      const fileUrl = `/api/files/${filename}`;
+      const attachment = await storage.getAttachmentByFileUrl(fileUrl);
+      if (!attachment) {
+        return res.status(404).send("Vedlegg ikke funnet");
+      }
+      const customer = await storage.getCustomer(attachment.customerId);
+      if (!customer || (customer.userId !== req.user!.id && req.user!.role !== "admin")) {
+        return res.status(403).send("Ingen tilgang");
+      }
+      const filePath = path.resolve(uploadDir, filename);
+      if (!filePath.startsWith(path.resolve(uploadDir)) || !fs.existsSync(filePath)) {
+        return res.status(404).send("Filen finnes ikke");
+      }
+      res.download(filePath, attachment.fileName);
+    } catch {
+      res.status(500).send("Kunne ikke hente filen");
     }
   });
 
   app.delete("/api/attachments/:id", requireAuth, async (req, res) => {
     try {
-      const deleted = await storage.deleteAttachment(req.params.id);
+      const deleted = await storage.deleteAttachment(String(req.params.id));
       if (!deleted) {
         return res.status(404).send("Vedlegg ikke funnet");
+      }
+      const filename = path.basename(deleted.fileUrl);
+      const filePath = path.resolve(uploadDir, filename);
+      if (filePath.startsWith(path.resolve(uploadDir)) && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
       res.json({ success: true });
     } catch (error) {

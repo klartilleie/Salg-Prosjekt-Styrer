@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -31,7 +31,6 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, Search, MapPin, Users, Paperclip, Trash2, FileText, Eye, Upload } from "lucide-react";
 import { Customer, InsertCustomer, Attachment } from "@shared/schema";
-import { ObjectUploader } from "@/components/ObjectUploader";
 
 const customerSchema = z.object({
   firstName: z.string().min(2, "Fornavn må ha minst 2 tegn"),
@@ -80,8 +79,18 @@ export default function CustomersPage() {
   });
 
   const createAttachmentMutation = useMutation({
-    mutationFn: async (data: { customerId: string; fileName: string; fileUrl: string; fileSize?: number; mimeType?: string }) => {
-      const res = await apiRequest("POST", `/api/customers/${data.customerId}/attachments`, data);
+    mutationFn: async (data: { customerId: string; file: File }) => {
+      const body = new FormData();
+      body.append("file", data.file);
+      const res = await fetch(`/api/customers/${data.customerId}/attachments`, {
+        method: "POST",
+        body,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Kunne ikke laste opp vedlegg");
+      }
       return await res.json();
     },
     onSuccess: () => {
@@ -214,43 +223,11 @@ export default function CustomersPage() {
     setIsDetailDialogOpen(true);
   };
 
-  const handleUploadComplete = async (result: any) => {
-    if (!selectedCustomer || !result.successful?.length) return;
-    
-    for (const file of result.successful) {
-      const objectPath = file.meta?.objectPath || "";
-      if (objectPath) {
-        createAttachmentMutation.mutate({
-          customerId: selectedCustomer.id,
-          fileName: file.name,
-          fileUrl: objectPath,
-          fileSize: file.size,
-          mimeType: file.type,
-        });
-      }
-    }
-  };
-
-  const getUploadParameters = async (file: any) => {
-    const response = await fetch("/api/uploads/request-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        name: file.name,
-        size: file.size,
-        contentType: file.type || "application/octet-stream",
-      }),
-    });
-    if (!response.ok) throw new Error("Failed to get upload URL");
-    const data = await response.json();
-    file.meta = file.meta || {};
-    file.meta.objectPath = data.objectPath;
-    return {
-      method: "PUT" as const,
-      url: data.uploadURL,
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-    };
+  const handleFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedCustomer || !file) return;
+    createAttachmentMutation.mutate({ customerId: selectedCustomer.id, file });
   };
 
   const formatFileSize = (bytes: number | null | undefined) => {
@@ -689,16 +666,17 @@ export default function CustomersPage() {
                     <Paperclip className="h-4 w-4" />
                     Vedlegg
                   </h4>
-                  <ObjectUploader
-                    maxNumberOfFiles={10}
-                    maxFileSize={52428800}
-                    onGetUploadParameters={getUploadParameters}
-                    onComplete={handleUploadComplete}
-                    buttonClassName="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Last opp fil
-                  </ObjectUploader>
+                  <Button variant="outline" className="gap-2" asChild disabled={createAttachmentMutation.isPending}>
+                    <label>
+                      {createAttachmentMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      Last opp fil
+                      <input type="file" className="hidden" onChange={handleFileSelected} />
+                    </label>
+                  </Button>
                 </div>
 
                 {isLoadingAttachments ? (

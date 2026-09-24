@@ -34,9 +34,10 @@ export interface IStorage {
   createPayout(payout: InsertPayout): Promise<Payout>;
   updatePayout(id: string, data: Partial<Payout>): Promise<Payout | undefined>;
   
+  getAttachmentByFileUrl(fileUrl: string): Promise<Attachment | undefined>;
   getAttachmentsByCustomerId(customerId: string): Promise<Attachment[]>;
   createAttachment(attachment: InsertAttachment): Promise<Attachment>;
-  deleteAttachment(id: string): Promise<boolean>;
+  deleteAttachment(id: string): Promise<Attachment | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -137,6 +138,11 @@ export class DatabaseStorage implements IStorage {
     return payout || undefined;
   }
 
+  async getAttachmentByFileUrl(fileUrl: string): Promise<Attachment | undefined> {
+    const [attachment] = await db.select().from(attachments).where(eq(attachments.fileUrl, fileUrl));
+    return attachment || undefined;
+  }
+
   async getAttachmentsByCustomerId(customerId: string): Promise<Attachment[]> {
     return await db.select().from(attachments).where(eq(attachments.customerId, customerId)).orderBy(desc(attachments.uploadedAt));
   }
@@ -146,9 +152,9 @@ export class DatabaseStorage implements IStorage {
     return attachment;
   }
 
-  async deleteAttachment(id: string): Promise<boolean> {
-    const result = await db.delete(attachments).where(eq(attachments.id, id)).returning();
-    return result.length > 0;
+  async deleteAttachment(id: string): Promise<Attachment | undefined> {
+    const [attachment] = await db.delete(attachments).where(eq(attachments.id, id)).returning();
+    return attachment;
   }
 }
 

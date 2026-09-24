@@ -2,31 +2,23 @@ import { storage } from "./storage";
 import { hashPassword } from "./auth";
 
 export async function seedAdminUser() {
-  // Seed default dev admin
-  const adminUsername = "admin";
-  const existingAdmin = await storage.getUserByUsername(adminUsername);
-  if (!existingAdmin) {
-    await storage.createUser({
-      username: adminUsername,
-      password: await hashPassword("admin123"),
-      fullName: "Administrator",
-      email: "admin@salescrm.no",
-      role: "admin",
-    });
-    console.log("Created dev admin user: admin / admin123");
+  const username = process.env.ADMIN_USERNAME;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!username || !password) {
+    return;
   }
 
-  // Seed production admin
-  const prodAdminUsername = "kundeservice@smarthjem.as";
-  const existingProdAdmin = await storage.getUserByUsername(prodAdminUsername);
-  if (!existingProdAdmin) {
-    await storage.createUser({
-      username: prodAdminUsername,
-      password: await hashPassword("Admin2026"),
-      fullName: "Kundeservice",
-      email: "kundeservice@smarthjem.as",
-      role: "admin",
-    });
-    console.log("Created production admin user: kundeservice@smarthjem.as");
+  const existing = await storage.getUserByUsername(username);
+  if (existing) {
+    return;
   }
+
+  await storage.createUser({
+    username,
+    password: await hashPassword(password),
+    fullName: process.env.ADMIN_FULL_NAME || "Administrator",
+    email: process.env.ADMIN_EMAIL || username,
+    role: "admin",
+  });
+  console.log(`Created admin user: ${username}`);
 }
