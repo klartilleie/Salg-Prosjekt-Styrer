@@ -1,51 +1,31 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calculator, Check, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
 import {
   BIOCLEANER_MODELS,
   BIOCLEANER_TYPES,
   DEFAULT_PRICES,
   GRAVING_OPTIONS,
+  ETTERPOLLERINGSKUM,
+  ETTERPOLLERING_PLUS,
+  FRAKT_REGIONS,
+  OTHER_PRICES,
+  PRICE_LIST_DATE,
   STYRESKAP_OPTIONS,
-  biocleanerPrice,
+  UTEHUS_PRICE,
+  UV_LAMPE,
+  formatKr,
+  previewQuote,
+  quoteFormSchema,
+  type QuoteFormData,
 } from "@shared/biocleaner-offer";
-
-const quoteSchema = z.object({
-  customerName: z.string().min(2, "Skriv inn kundens navn"),
-  customerAddress: z.string().min(5, "Velg en adresse"),
-  streetName: z.string().optional(),
-  houseNumber: z.string().optional(),
-  postalCode: z.string().regex(/^\d{4}$/, "Postnummer må være 4 siffer"),
-  city: z.string().min(2, "Poststed er påkrevd"),
-  municipality: z.string().optional(),
-  customerEmail: z.string().email("Ugyldig e-postadresse"),
-  customerPhone: z.string().min(8, "Telefonnummer må ha minst 8 siffer"),
-  biocleanerModel: z.string().min(1, "Velg modell"),
-  biocleanerType: z.string().min(1, "Velg type"),
-  numberOfHomes: z.string().min(1, "Oppgi antall"),
-  biocleanerPrice: z.number(),
-  styreskapSize: z.string(),
-  styreskapPrice: z.number(),
-  utehus: z.string(),
-  utehusPrice: z.number(),
-  soknadUtslippPrice: z.number(),
-  soknadDispensasjonPrice: z.number(),
-  innreguleringPrice: z.number(),
-  gravingPrice: z.number(),
-  fraktPrice: z.number(),
-  offerComments: z.string().optional(),
-});
-
-type QuoteFormData = z.infer<typeof quoteSchema>;
 
 interface AddressSuggestion {
   adressetekst: string;
@@ -56,58 +36,55 @@ interface AddressSuggestion {
   nummer?: string | number;
 }
 
-function kroner(value: number) {
-  return `kr ${value.toLocaleString("nb-NO")},-`;
-}
+const defaultValues: QuoteFormData = {
+  customerName: "",
+  customerAddress: "",
+  streetName: "",
+  houseNumber: "",
+  postalCode: "",
+  city: "",
+  municipality: "",
+  customerEmail: "",
+  customerPhone: "",
+  biocleanerModel: "",
+  biocleanerType: "optima",
+  numberOfHomes: "1",
+  styreskapSize: "small",
+  utehus: "nei",
+  gravingPrice: DEFAULT_PRICES.graving,
+  fraktPrice: DEFAULT_PRICES.frakt,
+  fraktRegion: "",
+  pumpekumme: "nei",
+  airPumpe: "none",
+  pumpeKjemi: "nei",
+  pumpeTilKumme: "nei",
+  tilleggsring: "none",
+  tilleggsringAntall: 1,
+  etterpolleringskum: "none",
+  etterpolleringPlus: "none",
+  uvLampe: "none",
+  serviceKjoring: "none",
+  serviceBesok: 2,
+  aluminiumFatLiter: 0,
+  offerComments: "",
+};
 
 export function BiocleanerQuoteForm() {
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<{ emailSent: boolean; emailReason?: string } | null>(null);
   const [addressQuery, setAddressQuery] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<QuoteFormData>({
-    resolver: zodResolver(quoteSchema),
-    defaultValues: {
-      customerName: "",
-      customerAddress: "",
-      streetName: "",
-      houseNumber: "",
-      postalCode: "",
-      city: "",
-      municipality: "",
-      customerEmail: "",
-      customerPhone: "",
-      biocleanerModel: "",
-      biocleanerType: "optima",
-      numberOfHomes: "1",
-      biocleanerPrice: 0,
-      styreskapSize: "small",
-      styreskapPrice: STYRESKAP_OPTIONS[0].defaultPrice,
-      utehus: "nei",
-      utehusPrice: 0,
-      soknadUtslippPrice: DEFAULT_PRICES.soknadUtslipp,
-      soknadDispensasjonPrice: DEFAULT_PRICES.soknadDispensasjon,
-      innreguleringPrice: DEFAULT_PRICES.innregulering,
-      gravingPrice: DEFAULT_PRICES.graving,
-      fraktPrice: DEFAULT_PRICES.frakt,
-      offerComments: "",
-    },
+    resolver: zodResolver(quoteFormSchema),
+    defaultValues,
   });
 
-  const prices = form.watch([
-    "biocleanerPrice",
-    "styreskapPrice",
-    "utehusPrice",
-    "soknadUtslippPrice",
-    "soknadDispensasjonPrice",
-    "innreguleringPrice",
-    "gravingPrice",
-    "fraktPrice",
-  ]);
-  const sum = prices.reduce((total, value) => total + (Number(value) || 0), 0);
-  const mva = Math.round(sum * 0.25);
-  const total = sum + mva;
+  const values = form.watch();
+  const preview = previewQuote(values);
+  const model = BIOCLEANER_MODELS.find((item) => item.id === values.biocleanerModel);
 
   useEffect(() => {
     if (addressQuery.trim().length < 3) {
@@ -129,6 +106,15 @@ export function BiocleanerQuoteForm() {
     return () => window.clearTimeout(timer);
   }, [addressQuery]);
 
+  useEffect(() => {
+    if (model && model.optimaPrice == null && values.biocleanerType === "optima") {
+      form.setValue("biocleanerType", "comfort");
+    }
+    if (model && !model.rings && values.tilleggsring !== "none") {
+      form.setValue("tilleggsring", "none");
+    }
+  }, [model, values.biocleanerType, values.tilleggsring, form]);
+
   const selectAddress = (suggestion: AddressSuggestion) => {
     form.setValue("customerAddress", suggestion.adressetekst, { shouldValidate: true });
     form.setValue("streetName", suggestion.adressenavn || "");
@@ -140,39 +126,29 @@ export function BiocleanerQuoteForm() {
     setAddressSuggestions([]);
   };
 
-  const setModel = (modelId: string) => {
-    const model = BIOCLEANER_MODELS.find((item) => item.id === modelId);
-    let typeId = form.getValues("biocleanerType") || "optima";
-    if (typeId === "optima" && model?.optimaPrice === null) {
-      typeId = "comfort";
-      form.setValue("biocleanerType", typeId);
-    }
-    form.setValue("biocleanerModel", modelId, { shouldValidate: true });
-    form.setValue("biocleanerPrice", biocleanerPrice(modelId, typeId));
-  };
-
-  const setType = (typeId: string) => {
-    form.setValue("biocleanerType", typeId, { shouldValidate: true });
-    const modelId = form.getValues("biocleanerModel");
-    if (modelId) form.setValue("biocleanerPrice", biocleanerPrice(modelId, typeId));
-  };
-
-  const submitQuote = useMutation({
-    mutationFn: async (data: QuoteFormData) => {
+  const onSubmit = async (data: QuoteFormData) => {
+    setSubmitError("");
+    setIsSubmitting(true);
+    try {
       const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ...data, offerSum: sum, offerMva: mva, offerTotal: total }),
+        body: JSON.stringify(data),
       });
+      const raw = await res.text();
+      const body = raw ? (() => { try { return JSON.parse(raw); } catch { return raw; } })() : null;
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Kunne ikke sende tilbudet");
+        const message = typeof body === "string" ? body : body?.message;
+        throw new Error(message || "Kunne ikke sende tilbudet");
       }
-      return res.json();
-    },
-    onSuccess: () => setSent(true),
-  });
+      setSent({ emailSent: Boolean(body?.emailSent), emailReason: body?.emailReason });
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Kunne ikke sende tilbudet");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (sent) {
     return (
@@ -181,9 +157,17 @@ export function BiocleanerQuoteForm() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Check className="h-6 w-6" />
           </div>
-          <h2 className="text-2xl font-semibold">Tilbudet er sendt</h2>
-          <p className="text-muted-foreground">FRA-totalpris {kroner(total)}. Tilbudet er gyldig i 30 dager.</p>
-          <Button variant="outline" onClick={() => { form.reset(); setAddressQuery(""); setSent(false); }}>
+          <h2 className="text-2xl font-semibold">Tilbudet er sendt til godkjenning</h2>
+          <p className="text-muted-foreground">
+            {preview ? `FRA-totalpris ${formatKr(preview.total)}. ` : ""}
+            Administrator kan skrive ut tilbudet som PDF. Tilbudet er gyldig i 30 dager.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {sent.emailSent
+              ? "Administrator er varslet på e-post."
+              : `E-postvarselet ble ikke sendt${sent.emailReason ? `: ${sent.emailReason}` : ""}. Tilbudet ligger likevel til godkjenning.`}
+          </p>
+          <Button variant="outline" onClick={() => { form.reset(defaultValues); setAddressQuery(""); setSent(null); }}>
             Lag et nytt tilbud
           </Button>
         </CardContent>
@@ -193,7 +177,7 @@ export function BiocleanerQuoteForm() {
 
   return (
     <Form {...form}>
-      <form className="space-y-6" onSubmit={form.handleSubmit((data) => submitQuote.mutate(data))}>
+      <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
             <CardTitle>Kunde- og prosjektdetaljer</CardTitle>
@@ -279,16 +263,26 @@ export function BiocleanerQuoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
+            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="biocleanerModel" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Biocleaner-modell</FormLabel>
-                  <Select value={field.value} onValueChange={setModel}>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
                     <FormControl><SelectTrigger data-testid="select-biocleaner-model"><SelectValue placeholder="Velg modell" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {BIOCLEANER_MODELS.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
-                      ))}
+                      <SelectGroup>
+                        <SelectLabel>Inntil 50 PE</SelectLabel>
+                        {BIOCLEANER_MODELS.filter((item) => item.group === "standard").map((item) => (
+                          <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>Over 50 PE, kapittel 13</SelectLabel>
+                        {BIOCLEANER_MODELS.filter((item) => item.group === "large").map((item) => (
+                          <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -297,12 +291,11 @@ export function BiocleanerQuoteForm() {
               <FormField control={form.control} name="biocleanerType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type</FormLabel>
-                  <Select value={field.value} onValueChange={setType}>
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl><SelectTrigger data-testid="select-biocleaner-type"><SelectValue placeholder="Velg type" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {BIOCLEANER_TYPES.map((type) => {
-                        const model = BIOCLEANER_MODELS.find((item) => item.id === form.getValues("biocleanerModel"));
-                        const disabled = type.id === "optima" && !!model && model.optimaPrice === null;
+                        const disabled = type.id === "optima" && !!model && model.optimaPrice == null;
                         return (
                           <SelectItem key={type.id} value={type.id} disabled={disabled}>
                             {type.name} - {type.description}{disabled ? " (utgår)" : ""}
@@ -323,84 +316,192 @@ export function BiocleanerQuoteForm() {
               )} />
             </div>
 
-            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-              <h4 className="text-sm font-medium text-muted-foreground">Prisdetaljer</h4>
-              <PriceRow label="Biocleaner renseanlegg">
-                <FormField control={form.control} name="biocleanerPrice" render={({ field }) => (
-                  <NumberPrice value={field.value} onChange={(value) => field.onChange(value)} testId="input-biocleaner-price" />
-                )} />
-              </PriceRow>
-              <PriceRow label="Styreskap">
-                <FormField control={form.control} name="styreskapSize" render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => {
-                    field.onChange(value);
-                    const option = STYRESKAP_OPTIONS.find((item) => item.id === value);
-                    if (option) form.setValue("styreskapPrice", option.defaultPrice);
-                  }}>
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField control={form.control} name="styreskapSize" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Styreskap</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       {STYRESKAP_OPTIONS.map((option) => (
-                        <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>
+                        <SelectItem key={option.id} value={option.id}>{option.name} ({formatKr(option.defaultPrice)})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )} />
-                <FormField control={form.control} name="styreskapPrice" render={({ field }) => (
-                  <Input readOnly className="w-28 bg-muted text-right" value={field.value} />
-                )} />
-              </PriceRow>
-              <PriceRow label="Utehus til styring">
-                <FormField control={form.control} name="utehus" render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => {
-                    field.onChange(value);
-                    form.setValue("utehusPrice", value === "ja" ? 10000 : 0);
-                  }}>
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="utehus" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Utehus til styring ({formatKr(UTEHUS_PRICE)})</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="ja">Ja</SelectItem>
                       <SelectItem value="nei">Nei</SelectItem>
+                      <SelectItem value="ja">Ja</SelectItem>
                     </SelectContent>
                   </Select>
-                )} />
-                <FormField control={form.control} name="utehusPrice" render={({ field }) => (
-                  <Input readOnly className="w-28 bg-muted text-right" value={field.value} />
-                )} />
-              </PriceRow>
-              <LockedPrice label="Søknad om utslipp" name="soknadUtslippPrice" form={form} />
-              <LockedPrice label="Søknad om dispensasjon" name="soknadDispensasjonPrice" form={form} />
-              <LockedPrice label="Innregulering/oppstart/montering" name="innreguleringPrice" form={form} />
-              <PriceRow label="Graving med singel" suffix={false}>
-                <FormField control={form.control} name="gravingPrice" render={({ field }) => (
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="gravingPrice" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Graving med singel</FormLabel>
                   <Select value={String(field.value)} onValueChange={(value) => field.onChange(parseInt(value, 10))}>
-                    <SelectTrigger className="w-36" data-testid="select-graving-price"><SelectValue placeholder="Velg pris" /></SelectTrigger>
+                    <FormControl><SelectTrigger data-testid="select-graving-price"><SelectValue placeholder="Velg pris" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {GRAVING_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={String(option.value)}>{option.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )} />
-              </PriceRow>
-              <LockedPrice label="Frakt" name="fraktPrice" form={form} />
-              <div className="space-y-2 border-t pt-3">
-                <div className="flex justify-between text-sm font-medium"><span>Sum</span><span data-testid="text-offer-sum">{kroner(sum)}</span></div>
-                <div className="flex justify-between text-sm"><span>Mva (25%)</span><span data-testid="text-offer-mva">{kroner(mva)}</span></div>
-                <div className="flex justify-between border-t pt-2 font-semibold"><span>FRA - Totalpris</span><span data-testid="text-offer-total">{kroner(total)}</span></div>
-                <div className="flex justify-between font-semibold"><span>TIL - Totalpris inkl. avsetning</span><span>{kroner(total + 20000)}</span></div>
-                <p className="text-xs text-muted-foreground">
-                  Dette beløpet inkluderer en avsetning på inntil 20 000 kr for å dekke uforutsette utfordringer i arbeidet (f.eks. ved behov for sprengning, kiling av fjell, fjerning av uventede masser eller ekstra sikring). Dette beløpet faktureres kun dersom slike forhold oppstår, og etter nærmere avtale med kunden.
-                </p>
-              </div>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="fraktRegion" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frakt fra nærmeste lager</FormLabel>
+                  <Select value={field.value || undefined} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger data-testid="select-frakt-region"><SelectValue placeholder="Velg region" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {FRAKT_REGIONS.map((region) => (
+                        <SelectItem key={region.id} value={region.id}>{region.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="fraktPrice" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fraktbeløp eks. mva</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={0} value={field.value} onChange={(event) => field.onChange(Number(event.target.value))} />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">Frakt beregnes fra lager og legges inn her. For anlegg over 50 PE avtales frakt, installasjon og service særskilt.</p>
+                </FormItem>
+              )} />
             </div>
+          </CardContent>
+        </Card>
 
-            <FormField control={form.control} name="offerComments" render={({ field }) => (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tilleggsutstyr</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <YesNo name="pumpekumme" label={`Pumpekumme komplett (${formatKr(OTHER_PRICES.pumpekumme)})`} form={form} />
+            <FormField control={form.control} name="airPumpe" render={({ field }) => (
               <FormItem>
-                <FormLabel>Kommentarer til tilbudet</FormLabel>
-                <FormControl><Textarea className="min-h-24" placeholder="Eventuelle tilleggsopplysninger eller kommentarer..." {...field} /></FormControl>
+                <FormLabel>Air-pumpe</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Ingen</SelectItem>
+                    <SelectItem value="60">60 ({formatKr(OTHER_PRICES.air60)})</SelectItem>
+                    <SelectItem value="80">80 ({formatKr(OTHER_PRICES.air80)})</SelectItem>
+                    <SelectItem value="120">120 ({formatKr(OTHER_PRICES.air120)})</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )} />
+            <YesNo name="pumpeKjemi" label={`Pumpe kjemi (${formatKr(OTHER_PRICES.pumpeKjemi)})`} form={form} />
+            <YesNo name="pumpeTilKumme" label={`Pumpe til kumme (${formatKr(OTHER_PRICES.pumpeTilKumme)})`} form={form} />
+            <FormField control={form.control} name="tilleggsring" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tilleggsringer</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange} disabled={!!model && !model.rings}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Ingen</SelectItem>
+                    <SelectItem value="60">60 cm{model?.rings ? ` (${formatKr(model.rings["60"])})` : ""}</SelectItem>
+                    <SelectItem value="80">80 cm{model?.rings ? ` (${formatKr(model.rings["80"])})` : ""}</SelectItem>
+                    <SelectItem value="100">100 cm{model?.rings ? ` (${formatKr(model.rings["100"])})` : ""}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {model && !model.rings && <p className="text-xs text-muted-foreground">Ikke i prislisten for denne modellen.</p>}
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="tilleggsringAntall" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Antall tilleggsringer</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} max={20} value={field.value} onChange={(event) => field.onChange(parseInt(event.target.value, 10) || 0)} disabled={values.tilleggsring === "none"} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <SizeSelect name="etterpolleringskum" label="Etterpolleringskum" options={ETTERPOLLERINGSKUM} form={form} />
+            <SizeSelect name="etterpolleringPlus" label="Etterpollering +" options={ETTERPOLLERING_PLUS} form={form} />
+            <SizeSelect name="uvLampe" label="UV-lampe" options={UV_LAMPE} form={form} />
+            <FormField control={form.control} name="aluminiumFatLiter" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Aluminiumsfat, liter ({formatKr(OTHER_PRICES.aluminiumFatPerLiter)} pr liter)</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} step="0.1" value={field.value} onChange={(event) => field.onChange(Number(event.target.value))} />
+                </FormControl>
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="serviceKjoring" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Kjøring ved service, per besøk</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">Ikke inkludert</SelectItem>
+                    <SelectItem value="innen50">Inntil 50 km ({formatKr(OTHER_PRICES.serviceInnen50)})</SelectItem>
+                    <SelectItem value="over50">Over 50 km ({formatKr(OTHER_PRICES.serviceOver50)})</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="serviceBesok" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Antall servicebesøk</FormLabel>
+                <FormControl>
+                  <Input type="number" min={0} max={12} value={field.value} onChange={(event) => field.onChange(parseInt(event.target.value, 10) || 0)} disabled={values.serviceKjoring === "none"} />
+                </FormControl>
+                <FormMessage />
               </FormItem>
             )} />
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Prisdetaljer</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!preview && <p className="text-sm text-muted-foreground">Velg modell for å se prisen.</p>}
+            {preview?.lines.map((line) => (
+              <div key={line.label} className="flex items-start justify-between gap-4 text-sm">
+                <span className="min-w-0">{line.label}</span>
+                <span className="shrink-0 tabular-nums">{formatKr(line.amount)}</span>
+              </div>
+            ))}
+            {preview && (
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex justify-between text-sm font-medium"><span>Sum</span><span data-testid="text-offer-sum">{formatKr(preview.sum)}</span></div>
+                <div className="flex justify-between text-sm"><span>Mva (25%)</span><span data-testid="text-offer-mva">{formatKr(preview.mva)}</span></div>
+                <div className="flex justify-between border-t pt-2 font-semibold"><span>FRA - Totalpris</span><span data-testid="text-offer-total">{formatKr(preview.total)}</span></div>
+                <div className="flex justify-between font-semibold"><span>TIL - Totalpris inkl. avsetning</span><span>{formatKr(preview.tilTotal)}</span></div>
+                <p className="text-xs text-muted-foreground">
+                  Dette beløpet inkluderer en avsetning på inntil 20 000 kr for å dekke uforutsette utfordringer i arbeidet (f.eks. ved behov for sprengning, kiling av fjell, fjerning av uventede masser eller ekstra sikring). Dette beløpet faktureres kun dersom slike forhold oppstår, og etter nærmere avtale med kunden.
+                </p>
+                <p className="text-sm">
+                  {preview.serviceAnnual != null
+                    ? `Årlig servicekostnad: ${formatKr(preview.serviceAnnual)}. Fordeles på to servicebesøk og er ikke med i totalprisen.`
+                    : "Årlig servicekostnad er ikke oppgitt for denne modellen."}
+                </p>
+              </div>
+            )}
+            <span className="sr-only" data-testid="input-biocleaner-price">{preview?.lines[0]?.amount ?? 0}</span>
+          </CardContent>
+        </Card>
+
+        <FormField control={form.control} name="offerComments" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Kommentarer til tilbudet</FormLabel>
+            <FormControl><Textarea className="min-h-24" placeholder="Eventuelle tilleggsopplysninger eller kommentarer..." {...field} /></FormControl>
+          </FormItem>
+        )} />
 
         <Card>
           <CardHeader>
@@ -411,14 +512,15 @@ export function BiocleanerQuoteForm() {
             <p><strong>Offentlige gebyrer:</strong> Alle oppgitte priser er eksklusive saksbehandlingsgebyrer fra kommunen. Slike gebyrer faktureres direkte fra kommunen til kunden.</p>
             <p><strong>Forbehold:</strong> Tilbudet forutsetter godkjent utslippstillatelse fra kommunen basert på prosjektert plassering i kartet.</p>
             <p><strong>Kontrakt:</strong> Endelige vilkår, garantier og fremdriftsplan fremkommer i den formelle utførelseskontrakten og ikke i dette tilbudet.</p>
+            <p>Når skjemaet sendes, går tilbudet til administrator for godkjenning og utskrift i PDF. Administrator varsles på e-post.</p>
           </CardContent>
         </Card>
 
-        {submitQuote.isError && <p className="text-sm text-destructive">{submitQuote.error.message}</p>}
+        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
         <div className="flex justify-end pb-8">
-          <Button type="submit" size="lg" className="w-full md:w-auto md:min-w-48" disabled={submitQuote.isPending} data-testid="button-submit-form">
-            {submitQuote.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send tilbud
+          <Button type="submit" size="lg" className="w-full md:w-auto md:min-w-48" disabled={isSubmitting} data-testid="button-submit-form">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Send til godkjenning
           </Button>
         </div>
       </form>
@@ -426,44 +528,56 @@ export function BiocleanerQuoteForm() {
   );
 }
 
-function PriceRow({ label, children, suffix = true }: { label: string; children: React.ReactNode; suffix?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-sm">{label}</span>
-      <div className="flex items-center gap-2">
-        {children}
-        {suffix && <span className="text-sm text-muted-foreground">kr</span>}
-      </div>
-    </div>
-  );
-}
-
-function NumberPrice({ value, onChange, testId }: { value: number; onChange: (value: number) => void; testId: string }) {
-  return (
-    <Input
-      type="number"
-      className="w-28 text-right"
-      data-testid={testId}
-      value={value}
-      onChange={(event) => onChange(parseInt(event.target.value, 10) || 0)}
-    />
-  );
-}
-
-function LockedPrice({
-  label,
+function YesNo({
   name,
+  label,
   form,
 }: {
+  name: "pumpekumme" | "pumpeKjemi" | "pumpeTilKumme";
   label: string;
-  name: "soknadUtslippPrice" | "soknadDispensasjonPrice" | "innreguleringPrice" | "fraktPrice";
   form: ReturnType<typeof useForm<QuoteFormData>>;
 }) {
   return (
-    <PriceRow label={label}>
-      <FormField control={form.control} name={name} render={({ field }) => (
-        <Input readOnly className="w-28 bg-muted text-right" value={field.value} />
-      )} />
-    </PriceRow>
+    <FormField control={form.control} name={name} render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <Select value={field.value} onValueChange={field.onChange}>
+          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+          <SelectContent>
+            <SelectItem value="nei">Nei</SelectItem>
+            <SelectItem value="ja">Ja</SelectItem>
+          </SelectContent>
+        </Select>
+      </FormItem>
+    )} />
+  );
+}
+
+function SizeSelect({
+  name,
+  label,
+  options,
+  form,
+}: {
+  name: "etterpolleringskum" | "etterpolleringPlus" | "uvLampe";
+  label: string;
+  options: readonly { id: string; name: string; price: number }[];
+  form: ReturnType<typeof useForm<QuoteFormData>>;
+}) {
+  return (
+    <FormField control={form.control} name={name} render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <Select value={field.value} onValueChange={field.onChange}>
+          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+          <SelectContent>
+            <SelectItem value="none">Ingen</SelectItem>
+            {options.map((option) => (
+              <SelectItem key={option.id} value={option.id}>{option.name} ({formatKr(option.price)})</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormItem>
+    )} />
   );
 }

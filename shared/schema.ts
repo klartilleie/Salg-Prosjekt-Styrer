@@ -39,6 +39,7 @@ export const customers = pgTable("customers", {
   pointsAwarded: integer("points_awarded").default(0),
   commissionAmount: decimal("commission_amount", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  quotePayload: text("quote_payload"),
   source: text("source").notNull().default("app"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
@@ -115,6 +116,7 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   commissionAmount: true,
   status: true,
   source: true,
+  quotePayload: true,
 });
 
 export const insertPayoutSchema = createInsertSchema(payouts).omit({

@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
 import { insertCustomerSchema, insertPayoutSchema, insertUserSchema } from "@shared/schema";
+import { buildStoredQuote, parseStoredQuote, quoteFormSchema, quoteNotes } from "@shared/biocleaner-offer";
+import { renderQuotePdf } from "./quote-pdf";
+import { notifyAdminsOfQuote } from "./mail";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -61,33 +64,6 @@ export async function registerRoutes(
     }
   });
 
-  const quoteSchema = z.object({
-    customerName: z.string().trim().min(2),
-    customerEmail: z.string().trim().email(),
-    customerPhone: z.string().trim().min(8),
-    customerAddress: z.string().trim().min(5),
-    postalCode: z.string().regex(/^\d{4}$/),
-    city: z.string().trim().min(2),
-    municipality: z.string().trim().optional(),
-    biocleanerModel: z.string().trim().min(1),
-    biocleanerType: z.string().trim().min(1),
-    numberOfHomes: z.string().trim().min(1),
-    biocleanerPrice: z.number(),
-    styreskapSize: z.string(),
-    styreskapPrice: z.number(),
-    utehus: z.string(),
-    utehusPrice: z.number(),
-    soknadUtslippPrice: z.number(),
-    soknadDispensasjonPrice: z.number(),
-    innreguleringPrice: z.number(),
-    gravingPrice: z.number(),
-    fraktPrice: z.number(),
-    offerComments: z.string().max(2000).optional(),
-    offerSum: z.number(),
-    offerMva: z.number(),
-    offerTotal: z.number(),
-  });
-
   async function websiteInboxUserId() {
     const username = "nettside";
     const existing = await storage.getUserByUsername(username);
@@ -105,28 +81,11 @@ export async function registerRoutes(
 
   app.post("/api/quotes", async (req, res) => {
     try {
-      const validated = quoteSchema.parse(req.body);
-      const userId = await websiteInboxUserId();
+      const validated = quoteFormSchema.parse(req.body);
+      const quote = buildStoredQuote(validated);
+      const userId = req.isAuthenticated() ? req.user!.id : await websiteInboxUserId();
       const [firstName, ...rest] = validated.customerName.split(/\s+/);
-      const modelName = validated.biocleanerModel.toUpperCase();
-      const notes = [
-        `Tilbud på Biocleaner ${modelName} ${validated.biocleanerType}`,
-        `Antall boliger/hytter: ${validated.numberOfHomes}`,
-        `Renseanlegg: ${validated.biocleanerPrice} kr`,
-        `Styreskap ${validated.styreskapSize}: ${validated.styreskapPrice} kr`,
-        `Utehus: ${validated.utehus} (${validated.utehusPrice} kr)`,
-        `Søknad utslipp: ${validated.soknadUtslippPrice} kr`,
-        `Søknad dispensasjon: ${validated.soknadDispensasjonPrice} kr`,
-        `Innregulering: ${validated.innreguleringPrice} kr`,
-        `Graving: ${validated.gravingPrice} kr`,
-        `Frakt: ${validated.fraktPrice} kr`,
-        `Sum: ${validated.offerSum} kr`,
-        `Mva: ${validated.offerMva} kr`,
-        `FRA-total: ${validated.offerTotal} kr`,
-        `TIL-total inkl. avsetning: ${validated.offerTotal + 20000} kr`,
-        validated.offerComments ? `Kommentar: ${validated.offerComments}` : "",
-      ].filter(Boolean).join("\n");
-      await storage.createCustomer({
+      const customer = await storage.createCustomer({
         firstName,
         lastName: rest.join(" ") || "-",
         email: validated.customerEmail,
@@ -135,15 +94,43 @@ export async function registerRoutes(
         postalCode: validated.postalCode,
         city: validated.city,
         municipality: validated.municipality || null,
-        saleAmount: String(validated.offerTotal),
-        notes,
+        saleAmount: quote.total.toFixed(2),
+        notes: quoteNotes(quote),
+        quotePayload: JSON.stringify(quote),
         userId,
         source: "web",
         status: "pending",
       } as any);
-      res.status(201).json({ ok: true });
+      const pdf = await renderQuotePdf(quote, "pending");
+      const email = await notifyAdminsOfQuote({
+        quote,
+        pdf,
+        sellerName: req.isAuthenticated() ? req.user!.fullName : undefined,
+      });
+      res.status(201).json({ ok: true, id: customer.id, emailSent: email.sent, emailReason: email.sent ? undefined : email.reason });
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).send(error.issues[0]?.message || "Ugyldig tilbud");
+      }
       res.status(400).send(error.message || "Ugyldig tilbud");
+    }
+  });
+
+  app.get("/api/customers/:id/quote-pdf", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(String(req.params.id));
+      if (!customer) return res.status(404).send("Kunde ikke funnet");
+      if (customer.userId !== req.user!.id && req.user!.role !== "admin") {
+        return res.status(403).send("Ingen tilgang");
+      }
+      const quote = parseStoredQuote(customer.quotePayload);
+      if (!quote) return res.status(404).send("Tilbudet har ingen PDF");
+      const pdf = await renderQuotePdf(quote, customer.status);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", "inline; filename=\"tilbud.pdf\"");
+      res.send(Buffer.from(pdf));
+    } catch {
+      res.status(500).send("Kunne ikke lage PDF");
     }
   });
 

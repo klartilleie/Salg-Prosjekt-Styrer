@@ -656,7 +656,7 @@ export default function CustomersPage() {
               {selectedCustomer.notes && (
                 <div>
                   <h4 className="font-semibold text-sm text-muted-foreground mb-1">Notater</h4>
-                  <p className="text-sm">{selectedCustomer.notes}</p>
+                  <p className="whitespace-pre-wrap text-sm">{selectedCustomer.notes}</p>
                 </div>
               )}
 

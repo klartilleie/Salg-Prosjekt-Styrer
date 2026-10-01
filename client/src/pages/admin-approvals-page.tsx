@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, CheckCircle, XCircle, Clock, FileText } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, FileText, Printer } from "lucide-react";
 import { Customer } from "@shared/schema";
+import { formatKr, parseStoredQuote } from "@shared/biocleaner-offer";
 
 interface CustomerWithUser extends Customer {
   user?: {
@@ -123,7 +124,7 @@ export default function AdminApprovalsPage() {
       <div>
         <h1 className="text-3xl font-bold" data-testid="text-admin-approvals-title">Godkjenninger</h1>
         <p className="text-muted-foreground mt-1">
-          Godkjenn eller avvis salg fra selgere
+          Godkjenn eller avvis salg og tilbud. Nye tilbud fra skjemaet varsles på e-post og kan skrives ut som PDF.
         </p>
       </div>
 
@@ -193,6 +194,14 @@ export default function AdminApprovalsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {parseStoredQuote(customer.quotePayload) && (
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={`/api/customers/${customer.id}/quote-pdf`} target="_blank" rel="noreferrer">
+                                <Printer className="mr-1 h-4 w-4" />
+                                PDF
+                              </a>
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             onClick={() => openApproveDialog(customer)}
@@ -282,7 +291,14 @@ export default function AdminApprovalsPage() {
                         {customer.pointsAwarded || "-"}
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(customer.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(customer.status)}
+                          {parseStoredQuote(customer.quotePayload) && (
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={`/api/customers/${customer.id}/quote-pdf`} target="_blank" rel="noreferrer">PDF</a>
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {customer.approvedAt 
@@ -300,7 +316,7 @@ export default function AdminApprovalsPage() {
       </Card>
 
       <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Godkjenn salg</DialogTitle>
             <DialogDescription>
@@ -317,6 +333,27 @@ export default function AdminApprovalsPage() {
                   Selger: {selectedCustomer.user?.fullName || "Ukjent"}
                 </p>
               </div>
+              {(() => {
+                const quote = parseStoredQuote(selectedCustomer.quotePayload);
+                if (!quote) return null;
+                return (
+                  <div className="mb-4 space-y-2 rounded-lg border p-4 text-sm">
+                    <p className="font-medium">Tilbud til utskrift</p>
+                    <div className="max-h-48 space-y-1 overflow-y-auto">
+                      {quote.lines.map((line) => (
+                        <div key={line.label} className="flex justify-between gap-3">
+                          <span className="min-w-0">{line.label}</span>
+                          <span className="shrink-0">{formatKr(line.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between gap-3 border-t pt-2 font-medium">
+                      <span>FRA-total inkl. mva</span>
+                      <span>{formatKr(quote.total)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="rounded-lg border p-4 mb-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Provisjon:</span>

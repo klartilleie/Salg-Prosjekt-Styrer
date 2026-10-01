@@ -20,7 +20,7 @@ export default function WebsitePage({ embedded = false }: { embedded?: boolean }
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Tilbud på Biocleaner renseanlegg</h1>
           <p className="mt-2 text-muted-foreground">
-            Samme tilbudsskjema som i befaringen, med modell, type og prislinjer.
+            Prisene følger Biocleaner-prislisten fra 01.01.2025. Skjemaet sendes til administrator for godkjenning og utskrift i PDF, og administrator varsles på e-post.
           </p>
         </div>
         <BiocleanerQuoteForm />
