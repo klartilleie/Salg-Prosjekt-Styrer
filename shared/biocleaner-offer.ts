@@ -4,29 +4,37 @@ export const PRICE_LIST_DATE = "01.01.2025";
 export const QUOTE_VALID_DAYS = 30;
 export const CONTINGENCY_AMOUNT = 20000;
 export const UTEHUS_PRICE = 10000;
+export const SERVICE_MONTHLY_BC6 = 799;
+export const SERVICE_MONTHLY_STEP = 100;
 
 export const BIOCLEANER_MODELS = [
-  { id: "bc6", name: "BC 6 (1-6 PE)", pe: 6, volume: "3,0 m³", group: "standard", optimaPrice: 78349, comfortPrice: 85790, exclusiveTillegg: 12274, serviceAnnual: 5971, rings: { "60": 5934, "80": 7590, "100": 10212 } },
-  { id: "bc10", name: "BC 10 (1-10 PE)", pe: 10, volume: "5,0 m³", group: "standard", optimaPrice: 98792, comfortPrice: 104890, exclusiveTillegg: 12586, serviceAnnual: 7160, rings: { "60": 6486, "80": 7728, "100": 11592 } },
-  { id: "bc12", name: "BC 12 (1-12 PE)", pe: 12, volume: "6,0 m³", group: "standard", optimaPrice: 115385, comfortPrice: 123675, exclusiveTillegg: 13654, serviceAnnual: 8101, rings: { "60": 7728, "80": 9246, "100": 13248 } },
-  { id: "bc16", name: "BC 16 (1-16 PE)", pe: 16, volume: "8,0 m³", group: "standard", optimaPrice: null, comfortPrice: 151671, exclusiveTillegg: 13654, serviceAnnual: 9230, rings: { "60": 9936, "80": 12282, "100": 16698 } },
-  { id: "bc20", name: "BC 20 (1-20 PE)", pe: 20, volume: "10,0 m³", group: "standard", optimaPrice: null, comfortPrice: 181439, exclusiveTillegg: 13654, serviceAnnual: 11194, rings: { "60": 12351, "80": 15456, "100": 18906 } },
-  { id: "bc25", name: "BC 25 (1-25 PE)", pe: 25, volume: "12,5 m³", group: "standard", optimaPrice: null, comfortPrice: 223543, exclusiveTillegg: 15456, serviceAnnual: 13904, rings: { "60": 12696, "80": 16008, "100": 19872 } },
-  { id: "bc30", name: "BC 30 (1-30 PE)", pe: 30, volume: "15,0 m³", group: "standard", optimaPrice: null, comfortPrice: 254672, exclusiveTillegg: 16836, serviceAnnual: 18523, rings: null },
-  { id: "bc40", name: "BC 40 (1-40 PE)", pe: 40, volume: null, group: "standard", optimaPrice: null, comfortPrice: 269935, exclusiveTillegg: 18680, serviceAnnual: null, rings: null },
-  { id: "bc50", name: "BC 50 (1-50 PE)", pe: 50, volume: "25,0 m³", group: "standard", optimaPrice: null, comfortPrice: 283542, exclusiveTillegg: 20286, serviceAnnual: 20845, rings: null },
-  { id: "bc60", name: "BC 60 (over 50 PE)", pe: 60, volume: null, group: "large", optimaPrice: null, comfortPrice: 367980, exclusiveTillegg: 22689, serviceAnnual: 24670, rings: null },
-  { id: "bc75", name: "BC 75 (over 50 PE)", pe: 75, volume: null, group: "large", optimaPrice: null, comfortPrice: 397750, exclusiveTillegg: 42204, serviceAnnual: 28110, rings: null },
-  { id: "bc100", name: "BC 100 (over 50 PE)", pe: 100, volume: null, group: "large", optimaPrice: null, comfortPrice: 439671, exclusiveTillegg: 60781, serviceAnnual: 31210, rings: null },
-  { id: "bc150", name: "BC 150 (over 50 PE)", pe: 150, volume: null, group: "large", optimaPrice: null, comfortPrice: 496195, exclusiveTillegg: 73366, serviceAnnual: 38510, rings: null },
-  { id: "bc200", name: "BC 200 (over 50 PE)", pe: 200, volume: null, group: "large", optimaPrice: null, comfortPrice: 568577, exclusiveTillegg: 84068, serviceAnnual: 43580, rings: null },
-  { id: "bc250", name: "BC 250 (over 50 PE)", pe: 250, volume: null, group: "large", optimaPrice: null, comfortPrice: 657549, exclusiveTillegg: 97223, serviceAnnual: 45980, rings: null },
-  { id: "bc300", name: "BC 300 (over 50 PE)", pe: 300, volume: null, group: "large", optimaPrice: null, comfortPrice: 730971, exclusiveTillegg: 108079, serviceAnnual: 52500, rings: null },
-  { id: "bc400", name: "BC 400 (over 50 PE)", pe: 400, volume: null, group: "large", optimaPrice: null, comfortPrice: 938681, exclusiveTillegg: 138790, serviceAnnual: 57210, rings: null },
-  { id: "bc500", name: "BC 500 (over 50 PE)", pe: 500, volume: null, group: "large", optimaPrice: null, comfortPrice: 1056728, exclusiveTillegg: 156244, serviceAnnual: 65880, rings: null },
+  { id: "bc6", name: "BC 6 (1-6 PE)", pe: 6, volume: "3,0 m³", group: "standard", optimaPrice: 78349, comfortPrice: 85790, exclusiveTillegg: 12274, rings: { "60": 5934, "80": 7590, "100": 10212 } },
+  { id: "bc10", name: "BC 10 (1-10 PE)", pe: 10, volume: "5,0 m³", group: "standard", optimaPrice: 98792, comfortPrice: 104890, exclusiveTillegg: 12586, rings: { "60": 6486, "80": 7728, "100": 11592 } },
+  { id: "bc12", name: "BC 12 (1-12 PE)", pe: 12, volume: "6,0 m³", group: "standard", optimaPrice: 115385, comfortPrice: 123675, exclusiveTillegg: 13654, rings: { "60": 7728, "80": 9246, "100": 13248 } },
+  { id: "bc16", name: "BC 16 (1-16 PE)", pe: 16, volume: "8,0 m³", group: "standard", optimaPrice: null, comfortPrice: 151671, exclusiveTillegg: 13654, rings: { "60": 9936, "80": 12282, "100": 16698 } },
+  { id: "bc20", name: "BC 20 (1-20 PE)", pe: 20, volume: "10,0 m³", group: "standard", optimaPrice: null, comfortPrice: 181439, exclusiveTillegg: 13654, rings: { "60": 12351, "80": 15456, "100": 18906 } },
+  { id: "bc25", name: "BC 25 (1-25 PE)", pe: 25, volume: "12,5 m³", group: "standard", optimaPrice: null, comfortPrice: 223543, exclusiveTillegg: 15456, rings: { "60": 12696, "80": 16008, "100": 19872 } },
+  { id: "bc30", name: "BC 30 (1-30 PE)", pe: 30, volume: "15,0 m³", group: "standard", optimaPrice: null, comfortPrice: 254672, exclusiveTillegg: 16836, rings: null },
+  { id: "bc40", name: "BC 40 (1-40 PE)", pe: 40, volume: null, group: "standard", optimaPrice: null, comfortPrice: 269935, exclusiveTillegg: 18680, rings: null },
+  { id: "bc50", name: "BC 50 (1-50 PE)", pe: 50, volume: "25,0 m³", group: "standard", optimaPrice: null, comfortPrice: 283542, exclusiveTillegg: 20286, rings: null },
+  { id: "bc60", name: "BC 60 (over 50 PE)", pe: 60, volume: null, group: "large", optimaPrice: null, comfortPrice: 367980, exclusiveTillegg: 22689, rings: null },
+  { id: "bc75", name: "BC 75 (over 50 PE)", pe: 75, volume: null, group: "large", optimaPrice: null, comfortPrice: 397750, exclusiveTillegg: 42204, rings: null },
+  { id: "bc100", name: "BC 100 (over 50 PE)", pe: 100, volume: null, group: "large", optimaPrice: null, comfortPrice: 439671, exclusiveTillegg: 60781, rings: null },
+  { id: "bc150", name: "BC 150 (over 50 PE)", pe: 150, volume: null, group: "large", optimaPrice: null, comfortPrice: 496195, exclusiveTillegg: 73366, rings: null },
+  { id: "bc200", name: "BC 200 (over 50 PE)", pe: 200, volume: null, group: "large", optimaPrice: null, comfortPrice: 568577, exclusiveTillegg: 84068, rings: null },
+  { id: "bc250", name: "BC 250 (over 50 PE)", pe: 250, volume: null, group: "large", optimaPrice: null, comfortPrice: 657549, exclusiveTillegg: 97223, rings: null },
+  { id: "bc300", name: "BC 300 (over 50 PE)", pe: 300, volume: null, group: "large", optimaPrice: null, comfortPrice: 730971, exclusiveTillegg: 108079, rings: null },
+  { id: "bc400", name: "BC 400 (over 50 PE)", pe: 400, volume: null, group: "large", optimaPrice: null, comfortPrice: 938681, exclusiveTillegg: 138790, rings: null },
+  { id: "bc500", name: "BC 500 (over 50 PE)", pe: 500, volume: null, group: "large", optimaPrice: null, comfortPrice: 1056728, exclusiveTillegg: 156244, rings: null },
 ] as const;
 
 export type BiocleanerModel = (typeof BIOCLEANER_MODELS)[number];
+
+export function serviceMonthlyInclVat(modelId: string) {
+  const index = BIOCLEANER_MODELS.findIndex((model) => model.id === modelId);
+  if (index < 0) return null;
+  return SERVICE_MONTHLY_BC6 + index * SERVICE_MONTHLY_STEP;
+}
 
 export const BIOCLEANER_TYPES = [
   { id: "optima", name: "Optima", description: "Standard-løsning" },
@@ -185,6 +193,7 @@ export type StoredQuote = {
   mva: number;
   total: number;
   tilTotal: number;
+  serviceMonthlyInclVat?: number | null;
   serviceAnnual: number | null;
   info: string[];
   comments: string;
@@ -281,15 +290,18 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   const sum = roundMoney(lines.reduce((total, line) => total + line.amount, 0));
   const mva = roundMoney(sum * 0.25);
   const total = roundMoney(sum + mva);
+  const monthlyService = serviceMonthlyInclVat(model.id);
   const info = [
     "Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra 01.01.2025. Basic utgår.",
-    "Årlig servicekostnad fordeles på to servicebesøk og er ikke med i totalprisen.",
+    monthlyService != null
+      ? `Service koster ${formatKr(monthlyService)} per måned inkl. mva og er ikke med i totalprisen for anlegget.`
+      : "Servicepris er ikke oppgitt for denne modellen.",
   ];
   if (input.serviceKjoring !== "none") {
     info.push("Fergekostnader ved service kommer i tillegg.");
   }
   if (model.group === "large") {
-    info.push("For anlegg over 50 PE beregnes frakt, installasjon og service i hvert enkelt tilfelle.");
+    info.push("For anlegg over 50 PE beregnes frakt og installasjon i hvert enkelt tilfelle.");
   }
   info.push("Offentlige saksbehandlingsgebyrer faktureres fra kommunen til kunden.");
 
@@ -316,7 +328,8 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
     mva,
     total,
     tilTotal: roundMoney(total + CONTINGENCY_AMOUNT),
-    serviceAnnual: model.serviceAnnual,
+    serviceMonthlyInclVat: monthlyService,
+    serviceAnnual: monthlyService == null ? null : monthlyService * 12,
     info,
     comments: input.offerComments?.trim() || "",
     priceListDate: PRICE_LIST_DATE,
@@ -369,7 +382,11 @@ export function quoteNotes(quote: StoredQuote) {
     `Mva: ${formatKr(quote.mva)}`,
     `FRA-total: ${formatKr(quote.total)}`,
     `TIL-total inkl. avsetning: ${formatKr(quote.tilTotal)}`,
-    quote.serviceAnnual != null ? `Årlig servicekostnad (ikke i total): ${formatKr(quote.serviceAnnual)}` : "",
+    quote.serviceMonthlyInclVat != null
+      ? `Service: ${formatKr(quote.serviceMonthlyInclVat)} per måned inkl. mva (ikke i total)`
+      : quote.serviceAnnual != null
+        ? `Årlig servicekostnad (ikke i total): ${formatKr(quote.serviceAnnual)}`
+        : "",
     quote.comments ? `Kommentar: ${quote.comments}` : "",
   ].filter(Boolean).join("\n");
 }

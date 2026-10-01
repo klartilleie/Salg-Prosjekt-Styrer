@@ -375,7 +375,7 @@ export function BiocleanerQuoteForm() {
                   <FormControl>
                     <Input type="number" min={0} value={field.value} onChange={(event) => field.onChange(Number(event.target.value))} />
                   </FormControl>
-                  <p className="text-xs text-muted-foreground">Frakt beregnes fra lager og legges inn her. For anlegg over 50 PE avtales frakt, installasjon og service særskilt.</p>
+                  <p className="text-xs text-muted-foreground">Frakt beregnes fra lager og legges inn her. For anlegg over 50 PE avtales frakt og installasjon særskilt.</p>
                 </FormItem>
               )} />
             </div>
@@ -485,10 +485,10 @@ export function BiocleanerQuoteForm() {
                 <p className="text-xs text-muted-foreground">
                   Dette beløpet inkluderer en avsetning på inntil 20 000 kr for å dekke uforutsette utfordringer i arbeidet (f.eks. ved behov for sprengning, kiling av fjell, fjerning av uventede masser eller ekstra sikring). Dette beløpet faktureres kun dersom slike forhold oppstår, og etter nærmere avtale med kunden.
                 </p>
-                <p className="text-sm">
-                  {preview.serviceAnnual != null
-                    ? `Årlig servicekostnad: ${formatKr(preview.serviceAnnual)}. Fordeles på to servicebesøk og er ikke med i totalprisen.`
-                    : "Årlig servicekostnad er ikke oppgitt for denne modellen."}
+                <p className="text-sm" data-testid="text-service-monthly">
+                  {preview.serviceMonthlyInclVat != null
+                    ? `Service: ${formatKr(preview.serviceMonthlyInclVat)} per måned inkl. mva. Prisen øker med 100 kr for hver større modell og er ikke med i totalprisen.`
+                    : "Servicepris er ikke oppgitt for denne modellen."}
                 </p>
               </div>
             )}

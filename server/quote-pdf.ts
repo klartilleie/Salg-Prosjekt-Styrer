@@ -94,7 +94,10 @@ export async function renderQuotePdf(quote: StoredQuote, status = "pending") {
   }
   y -= 6;
   draw("TIL-total inkluderer en avsetning på inntil 20 000 kr for uforutsette forhold som sprengning, kiling av fjell, uventede masser eller ekstra sikring. Beløpet faktureres bare dersom slike forhold oppstår, og etter avtale med kunden.", 9, regular, rgb(0.3, 0.33, 0.38));
-  if (quote.serviceAnnual != null) {
+  if (quote.serviceMonthlyInclVat != null) {
+    y -= 4;
+    draw(`Service for ${quote.modelName}: ${formatKr(quote.serviceMonthlyInclVat)} per måned inkl. mva. Dette er ikke inkludert i totalprisen.`, 10);
+  } else if (quote.serviceAnnual != null) {
     y -= 4;
     draw(`Årlig servicekostnad for ${quote.modelName}: ${formatKr(quote.serviceAnnual)}. Dette er ikke inkludert i totalprisen.`, 10);
   }
