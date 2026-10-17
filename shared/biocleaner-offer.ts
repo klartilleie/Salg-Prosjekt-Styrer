@@ -1,13 +1,33 @@
 import { z } from "zod";
 
-export const PRICE_LIST_DATE = "01.01.2025";
+/** Prisliste gyldig fra denne datoen (enhetspriser eks. mva, +13 % fra forrige liste). */
+export const PRICE_LIST_DATE = "01.10.2026";
+export const PRICE_INCREASE_FACTOR = 1.13;
 export const QUOTE_VALID_DAYS = 30;
 export const CONTINGENCY_AMOUNT = 20000;
-export const UTEHUS_PRICE = 10000;
+
+/** Månedlig service (inkl. mva) er fast og følger ikke prisøkningen. */
 export const SERVICE_MONTHLY_BC6 = 799;
 export const SERVICE_MONTHLY_STEP = 100;
 
-export const BIOCLEANER_MODELS = [
+/** Inkluderte servicebesøk ved kjøring «ink.»; ekstra besøk prises separat. */
+export const SERVICE_INCLUDED_VISITS = 2;
+export const SERVICE_EXTRA_VISIT_PRICE = 1500;
+
+export function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/** Juster prislistepris med 13 %. Service-abonnement holdes utenfor. */
+function listPrice(base2025: number): number;
+function listPrice(base2025: null): null;
+function listPrice(base2025: number | null): number | null;
+function listPrice(base2025: number | null): number | null {
+  if (base2025 == null) return null;
+  return roundMoney(base2025 * PRICE_INCREASE_FACTOR);
+}
+
+const BASE_MODELS = [
   { id: "bc6", name: "BC 6 (1-6 PE)", pe: 6, volume: "3,0 m³", group: "standard", optimaPrice: 78349, comfortPrice: 85790, exclusiveTillegg: 12274, rings: { "60": 5934, "80": 7590, "100": 10212 } },
   { id: "bc10", name: "BC 10 (1-10 PE)", pe: 10, volume: "5,0 m³", group: "standard", optimaPrice: 98792, comfortPrice: 104890, exclusiveTillegg: 12586, rings: { "60": 6486, "80": 7728, "100": 11592 } },
   { id: "bc12", name: "BC 12 (1-12 PE)", pe: 12, volume: "6,0 m³", group: "standard", optimaPrice: 115385, comfortPrice: 123675, exclusiveTillegg: 13654, rings: { "60": 7728, "80": 9246, "100": 13248 } },
@@ -28,6 +48,20 @@ export const BIOCLEANER_MODELS = [
   { id: "bc500", name: "BC 500 (over 50 PE)", pe: 500, volume: null, group: "large", optimaPrice: null, comfortPrice: 1056728, exclusiveTillegg: 156244, rings: null },
 ] as const;
 
+export const BIOCLEANER_MODELS = BASE_MODELS.map((model) => ({
+  ...model,
+  optimaPrice: listPrice(model.optimaPrice),
+  comfortPrice: listPrice(model.comfortPrice),
+  exclusiveTillegg: listPrice(model.exclusiveTillegg),
+  rings: model.rings
+    ? {
+        "60": listPrice(model.rings["60"]),
+        "80": listPrice(model.rings["80"]),
+        "100": listPrice(model.rings["100"]),
+      }
+    : null,
+}));
+
 export type BiocleanerModel = (typeof BIOCLEANER_MODELS)[number];
 
 export function serviceMonthlyInclVat(modelId: string) {
@@ -43,59 +77,59 @@ export const BIOCLEANER_TYPES = [
 ] as const;
 
 export const STYRESKAP_OPTIONS = [
-  { id: "small", name: "Small", defaultPrice: 6944 },
-  { id: "medium", name: "Medium", defaultPrice: 8960 },
-  { id: "large", name: "Large", defaultPrice: 15232 },
+  { id: "small", name: "Small", defaultPrice: listPrice(6944) },
+  { id: "medium", name: "Medium", defaultPrice: listPrice(8960) },
+  { id: "large", name: "Large", defaultPrice: listPrice(15232) },
 ] as const;
 
-export const GRAVING_OPTIONS = [
-  { value: 25000, label: "25 000 kr" },
-  { value: 35000, label: "35 000 kr" },
-  { value: 45000, label: "45 000 kr" },
-  { value: 55000, label: "55 000 kr" },
-  { value: 65000, label: "65 000 kr" },
-  { value: 75000, label: "75 000 kr" },
-  { value: 85000, label: "85 000 kr" },
-  { value: 95000, label: "95 000 kr" },
-  { value: 105000, label: "105 000 kr" },
-] as const;
+export const UTEHUS_PRICE = listPrice(10000);
+
+const GRAVING_BASE = [25000, 35000, 45000, 55000, 65000, 75000, 85000, 95000, 105000] as const;
+
+export const GRAVING_OPTIONS = GRAVING_BASE.map((value) => {
+  const adjusted = listPrice(value);
+  return {
+    value: adjusted,
+    label: `${adjusted.toLocaleString("nb-NO")} kr`,
+  };
+});
 
 export const OTHER_PRICES = {
-  pumpekumme: 50508,
-  air60: 4761,
-  air80: 6762,
-  air120: 9108,
-  pumpeKjemi: 5796,
-  pumpeTilKumme: 25254,
-  serviceInnen50: 710,
-  serviceOver50: 850,
-  aluminiumFatPerLiter: 25.5,
+  pumpekumme: listPrice(50508),
+  air60: listPrice(4761),
+  air80: listPrice(6762),
+  air120: listPrice(9108),
+  pumpeKjemi: listPrice(5796),
+  pumpeTilKumme: listPrice(25254),
+  serviceInnen50: listPrice(710),
+  serviceOver50: listPrice(850),
+  aluminiumFatPerLiter: listPrice(25.5),
 } as const;
 
 export const ETTERPOLLERINGSKUM = [
-  { id: "small", name: "Small (6-10)", price: 8064 },
-  { id: "medium", name: "Medium (10-16)", price: 10080 },
-  { id: "large", name: "Large (over 16)", price: 17203.2 },
+  { id: "small", name: "Small (6-10)", price: listPrice(8064) },
+  { id: "medium", name: "Medium (10-16)", price: listPrice(10080) },
+  { id: "large", name: "Large (over 16)", price: listPrice(17203.2) },
 ] as const;
 
 export const ETTERPOLLERING_PLUS = [
-  { id: "small", name: "Small", price: 11558.4 },
-  { id: "medium", name: "Medium", price: 13708.8 },
-  { id: "large", name: "Large", price: 21907.2 },
+  { id: "small", name: "Small", price: listPrice(11558.4) },
+  { id: "medium", name: "Medium", price: listPrice(13708.8) },
+  { id: "large", name: "Large", price: listPrice(21907.2) },
 ] as const;
 
 export const UV_LAMPE = [
-  { id: "small", name: "Small", price: 3840 },
-  { id: "medium", name: "Medium", price: 5400 },
-  { id: "large", name: "Large", price: 8640 },
+  { id: "small", name: "Small", price: listPrice(3840) },
+  { id: "medium", name: "Medium", price: listPrice(5400) },
+  { id: "large", name: "Large", price: listPrice(8640) },
 ] as const;
 
 export const DEFAULT_PRICES = {
-  soknadUtslipp: 12500,
-  soknadDispensasjon: 7500,
-  innregulering: 16900,
-  graving: 25000,
-  frakt: 6200,
+  soknadUtslipp: listPrice(12500),
+  soknadDispensasjon: listPrice(7500),
+  innregulering: listPrice(16900),
+  graving: listPrice(25000),
+  frakt: listPrice(6200),
 } as const;
 
 const SIZE_OPTIONS = ["none", "small", "medium", "large"] as const;
@@ -129,7 +163,7 @@ export const quoteFormSchema = z.object({
   etterpolleringskum: z.enum(SIZE_OPTIONS),
   etterpolleringPlus: z.enum(SIZE_OPTIONS),
   uvLampe: z.enum(SIZE_OPTIONS),
-  serviceKjoring: z.enum(["none", "innen50", "over50"]),
+  serviceKjoring: z.enum(["none", "inkl", "innen50", "over50"]),
   serviceBesok: z.number().int().min(0).max(12),
   aluminiumFatLiter: z.number().min(0).max(10_000),
   offerComments: z.string().max(2000).optional(),
@@ -150,8 +184,12 @@ export const quoteFormSchema = z.object({
       ctx.addIssue({ code: "custom", path: ["tilleggsringAntall"], message: "Oppgi antall ringer" });
     }
   }
-  if (data.serviceKjoring !== "none" && data.serviceBesok < 1) {
-    ctx.addIssue({ code: "custom", path: ["serviceBesok"], message: "Oppgi antall servicebesøk" });
+  if (data.serviceKjoring !== "none" && data.serviceBesok < SERVICE_INCLUDED_VISITS) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["serviceBesok"],
+      message: `Antall servicebesøk kan ikke være mindre enn ${SERVICE_INCLUDED_VISITS}`,
+    });
   }
 });
 
@@ -191,10 +229,6 @@ export type StoredQuote = {
   validDays: number;
 };
 
-export function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 export function formatKr(value: number) {
   const rounded = roundMoney(value);
   const hasCents = Math.abs(rounded - Math.trunc(rounded)) > 0.001;
@@ -219,6 +253,33 @@ function namedPrice<T extends { id: string; name: string; price: number }>(
   id: string,
 ) {
   return options.find((option) => option.id === id) ?? null;
+}
+
+function serviceKjoringLines(input: QuoteFormData): QuoteLine[] {
+  if (input.serviceKjoring === "none") return [];
+
+  const visits = input.serviceBesok;
+  if (input.serviceKjoring === "inkl") {
+    const extras = Math.max(0, visits - SERVICE_INCLUDED_VISITS);
+    if (extras <= 0) {
+      return [{ label: `Kjøring service inkludert (${SERVICE_INCLUDED_VISITS} besøk)`, amount: 0 }];
+    }
+    return [
+      {
+        label: `Kjøring service, ${extras} ekstra besøk utover ${SERVICE_INCLUDED_VISITS}`,
+        amount: roundMoney(extras * SERVICE_EXTRA_VISIT_PRICE),
+      },
+    ];
+  }
+
+  const perVisit = input.serviceKjoring === "innen50" ? OTHER_PRICES.serviceInnen50 : OTHER_PRICES.serviceOver50;
+  const distance = input.serviceKjoring === "innen50" ? "inntil 50 km" : "over 50 km";
+  return [
+    {
+      label: `Kjøring service, ${distance} x ${visits} besøk`,
+      amount: roundMoney(perVisit * visits),
+    },
+  ];
 }
 
 export function buildStoredQuote(input: QuoteFormData): StoredQuote {
@@ -267,11 +328,12 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   add("Graving med singel", input.gravingPrice);
   add("Frakt", DEFAULT_PRICES.frakt);
 
-  if (input.serviceKjoring !== "none") {
-    const perVisit = input.serviceKjoring === "innen50" ? OTHER_PRICES.serviceInnen50 : OTHER_PRICES.serviceOver50;
-    const distance = input.serviceKjoring === "innen50" ? "inntil 50 km" : "over 50 km";
-    add(`Kjøring service, ${distance} x ${input.serviceBesok} besøk`, perVisit * input.serviceBesok);
+  for (const line of serviceKjoringLines(input)) {
+    if (line.amount > 0 || input.serviceKjoring === "inkl") {
+      lines.push(line);
+    }
   }
+
   if (input.aluminiumFatLiter > 0) {
     add(`Aluminiumsfat ${input.aluminiumFatLiter} liter`, input.aluminiumFatLiter * OTHER_PRICES.aluminiumFatPerLiter);
   }
@@ -281,8 +343,14 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   const total = roundMoney(sum + mva);
   const monthlyService = serviceMonthlyInclVat(model.id);
   const info = [
-    "Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra 01.01.2025. Basic utgår.",
+    `Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra ${PRICE_LIST_DATE} (+13 % fra forrige liste). Basic utgår.`,
+    "Månedlig servicepris er fast og er ikke justert opp med prislisten.",
   ];
+  if (input.serviceKjoring === "inkl") {
+    info.push(
+      `Kjøring ved service er inkludert for ${SERVICE_INCLUDED_VISITS} besøk. Ekstra besøk: ${formatKr(SERVICE_EXTRA_VISIT_PRICE)} pr besøk.`,
+    );
+  }
   if (input.serviceKjoring !== "none") {
     info.push("Fergekostnader ved service kommer i tillegg.");
   }
@@ -349,7 +417,7 @@ export function previewQuote(input: Partial<QuoteFormData>): StoredQuote | null 
     etterpolleringPlus: input.etterpolleringPlus || "none",
     uvLampe: input.uvLampe || "none",
     serviceKjoring: input.serviceKjoring || "none",
-    serviceBesok: input.serviceBesok ?? 2,
+    serviceBesok: input.serviceBesok ?? SERVICE_INCLUDED_VISITS,
     aluminiumFatLiter: input.aluminiumFatLiter ?? 0,
     offerComments: input.offerComments,
   });
