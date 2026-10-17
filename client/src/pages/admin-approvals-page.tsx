@@ -483,9 +483,6 @@ export default function AdminApprovalsPage() {
                     <span>FRA-total inkl. mva</span>
                     <span>{formatKr(preview.total)}</span>
                   </div>
-                  {preview.serviceMonthlyInclVat != null && (
-                    <p className="text-muted-foreground">Service: {formatKr(preview.serviceMonthlyInclVat)} per måned inkl. mva</p>
-                  )}
                 </div>
               )}
 

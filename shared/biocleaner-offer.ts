@@ -282,9 +282,6 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   const monthlyService = serviceMonthlyInclVat(model.id);
   const info = [
     "Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra 01.01.2025. Basic utgår.",
-    monthlyService != null
-      ? `Service koster ${formatKr(monthlyService)} per måned inkl. mva og er ikke med i totalprisen for anlegget.`
-      : "Servicepris er ikke oppgitt for denne modellen.",
   ];
   if (input.serviceKjoring !== "none") {
     info.push("Fergekostnader ved service kommer i tillegg.");
@@ -370,11 +367,6 @@ export function quoteNotes(quote: StoredQuote) {
     `Mva: ${formatKr(quote.mva)}`,
     `FRA-total: ${formatKr(quote.total)}`,
     `TIL-total inkl. avsetning: ${formatKr(quote.tilTotal)}`,
-    quote.serviceMonthlyInclVat != null
-      ? `Service: ${formatKr(quote.serviceMonthlyInclVat)} per måned inkl. mva (ikke i total)`
-      : quote.serviceAnnual != null
-        ? `Årlig servicekostnad (ikke i total): ${formatKr(quote.serviceAnnual)}`
-        : "",
     quote.comments ? `Kommentar: ${quote.comments}` : "",
   ].filter(Boolean).join("\n");
 }

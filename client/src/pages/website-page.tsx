@@ -21,7 +21,7 @@ export default function WebsitePage({ embedded = false }: { embedded?: boolean }
           <h1 className="text-3xl font-bold">Tilbud på Biocleaner renseanlegg</h1>
           <p className="mt-2 text-muted-foreground">
             Prisene følger Biocleaner-prislisten fra 01.01.2025. Skjemaet lagres i systemet for administrator, med bilder og PDF.
-            Det sendes ikke til kunden. Når du velger tank, fylles pris og service inn automatisk.
+            Det sendes ikke til kunden. Når du velger tank, fylles pris inn automatisk.
           </p>
         </div>
         <BiocleanerQuoteForm />

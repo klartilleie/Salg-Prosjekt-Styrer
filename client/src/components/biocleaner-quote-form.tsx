@@ -24,7 +24,6 @@ import {
   formatKr,
   previewQuote,
   quoteFormSchema,
-  serviceMonthlyInclVat,
   type QuoteFormData,
 } from "@shared/biocleaner-offer";
 
@@ -298,7 +297,7 @@ export function BiocleanerQuoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår. Når du velger tank, fylles anleggspris og service inn automatisk.</p>
+            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår. Når du velger tank, fylles anleggspris inn automatisk.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="biocleanerModel" render={({ field }) => (
                 <FormItem>
@@ -356,11 +355,6 @@ export function BiocleanerQuoteForm() {
                 <p className="text-sm font-medium">Automatisk utfylt for {model.name}</p>
                 <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
                   <p>Anlegg ({values.biocleanerType}): {formatKr(biocleanerPrice(model.id, values.biocleanerType))}</p>
-                  <p data-testid="text-service-autofill">
-                    Service: {serviceMonthlyInclVat(model.id) != null
-                      ? `${formatKr(serviceMonthlyInclVat(model.id)!)} per måned inkl. mva`
-                      : "ikke oppgitt"}
-                  </p>
                   <p>Frakt: {formatKr(DEFAULT_PRICES.frakt)} (fast)</p>
                   <p>Styreskap Small: {formatKr(STYRESKAP_OPTIONS[0].defaultPrice)}</p>
                 </div>
@@ -512,11 +506,6 @@ export function BiocleanerQuoteForm() {
                 <div className="flex justify-between font-semibold"><span>TIL - Totalpris inkl. avsetning</span><span>{formatKr(preview.tilTotal)}</span></div>
                 <p className="text-xs text-muted-foreground">
                   Dette beløpet inkluderer en avsetning på inntil 20 000 kr for å dekke uforutsette utfordringer i arbeidet (f.eks. ved behov for sprengning, kiling av fjell, fjerning av uventede masser eller ekstra sikring). Dette beløpet faktureres kun dersom slike forhold oppstår, og etter nærmere avtale med kunden.
-                </p>
-                <p className="text-sm" data-testid="text-service-monthly">
-                  {preview.serviceMonthlyInclVat != null
-                    ? `Service: ${formatKr(preview.serviceMonthlyInclVat)} per måned inkl. mva. Prisen øker med 100 kr for hver større modell og er ikke med i totalprisen.`
-                    : "Servicepris er ikke oppgitt for denne modellen."}
                 </p>
               </div>
             )}
