@@ -20,7 +20,7 @@ export default function WebsitePage({ embedded = false }: { embedded?: boolean }
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Tilbud på Biocleaner renseanlegg</h1>
           <p className="mt-2 text-muted-foreground">
-            Prisene følger Biocleaner-prislisten fra 01.10.2026 (+13 %). Månedlig service er fast. Skjemaet lagres i systemet for administrator, med bilder og PDF.
+            Prisene følger Biocleaner-prislisten fra 01.10.2026. Månedlig service er fast. Skjemaet lagres i systemet for administrator, med bilder og PDF.
             Det sendes ikke til kunden. Når du velger tank, fylles pris inn automatisk.
           </p>
         </div>
