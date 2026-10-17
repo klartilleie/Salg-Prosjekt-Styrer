@@ -27,7 +27,6 @@ import {
   LayoutDashboard,
   Users,
   Wallet,
-  CheckSquare,
   UserCog,
   CreditCard,
   LogOut,
@@ -64,12 +63,8 @@ const userMenuItems = [
   },
 ];
 
+/** Innsendte skjema er bevisst skjult — kun tilgjengelig via e-postlenke. */
 const adminMenuItems = [
-  {
-    title: "Innsendte skjema",
-    url: "/app/admin/godkjenninger",
-    icon: CheckSquare,
-  },
   {
     title: "Brukere",
     url: "/app/admin/brukere",

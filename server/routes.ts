@@ -6,6 +6,10 @@ import { insertCustomerSchema, insertPayoutSchema, insertUserSchema } from "@sha
 import { buildStoredQuote, parseStoredQuote, quoteFormSchema, quoteNotes } from "@shared/biocleaner-offer";
 import { renderQuotePdf } from "./quote-pdf";
 import { notifyAdminsOfQuote } from "./mail";
+import {
+  isValidAdminFormsAccessKey,
+  requireAdminFormsAccess,
+} from "./admin-forms-access";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -233,6 +237,23 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/forms-access", requireAdmin, (req, res) => {
+    const key = typeof req.query.k === "string" ? req.query.k : "";
+    if (key && isValidAdminFormsAccessKey(key)) {
+      req.session.adminFormsAccess = true;
+    }
+    res.json({ ok: req.session.adminFormsAccess === true });
+  });
+
+  app.post("/api/admin/forms-access", requireAdmin, (req, res) => {
+    const key = typeof req.body?.k === "string" ? req.body.k : "";
+    if (!isValidAdminFormsAccessKey(key)) {
+      return res.status(403).send("Ugyldig eller manglende tilgangslenke");
+    }
+    req.session.adminFormsAccess = true;
+    res.json({ ok: true });
+  });
+
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
@@ -271,7 +292,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/customers", requireAdmin, async (req, res) => {
+  app.get("/api/admin/customers", requireAdmin, requireAdminFormsAccess, async (req, res) => {
     try {
       const customers = await storage.getAllCustomers();
       const withPhotos = [];
@@ -289,7 +310,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/customers/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/customers/:id", requireAdmin, requireAdminFormsAccess, async (req, res) => {
     try {
       const customer = await storage.getCustomer(String(req.params.id));
       if (!customer) return res.status(404).send("Kunde ikke funnet");
@@ -306,7 +327,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/admin/customers/:id/quote", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/customers/:id/quote", requireAdmin, requireAdminFormsAccess, async (req, res) => {
     try {
       const customer = await storage.getCustomer(String(req.params.id));
       if (!customer) return res.status(404).send("Kunde ikke funnet");
@@ -339,7 +360,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/customers/:id/attachments", requireAdmin, upload.array("photos", 12), async (req, res) => {
+  app.post("/api/admin/customers/:id/attachments", requireAdmin, requireAdminFormsAccess, upload.array("photos", 12), async (req, res) => {
     try {
       const customerId = String(req.params.id);
       const customer = await storage.getCustomer(customerId);
@@ -365,7 +386,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/customers/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/customers/:id/approve", requireAdmin, requireAdminFormsAccess, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
       if (!customer) {
@@ -400,7 +421,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/customers/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/customers/:id/reject", requireAdmin, requireAdminFormsAccess, async (req, res) => {
     try {
       const customer = await storage.updateCustomer(req.params.id, {
         status: "rejected",
