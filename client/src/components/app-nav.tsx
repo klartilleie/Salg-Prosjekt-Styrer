@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import { CheckSquare, LayoutDashboard, User, Users, Wallet } from "lucide-react";
+import { LayoutDashboard, User, Users, Wallet } from "lucide-react";
 
 const items = [
   { title: "Oversikt", url: "/app", icon: LayoutDashboard },
@@ -11,10 +10,8 @@ const items = [
 
 export function AppNav() {
   const [location] = useLocation();
-  const { user } = useAuth();
-  const links = user?.role === "admin"
-    ? [...items, { title: "Admin", url: "/app/admin/godkjenninger", icon: CheckSquare }]
-    : items;
+  // Innsendte skjema er ikke i menyen — kun via e-postlenke.
+  const links = items;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-background md:hidden">

@@ -1,22 +1,16 @@
 import nodemailer from "nodemailer";
 import { formatKr, type StoredQuote } from "@shared/biocleaner-offer";
-import { storage } from "./storage";
+import {
+  ADMIN_NOTIFY_ADDRESS,
+  adminFormsAccessUrl,
+} from "./admin-forms-access";
 
 export async function notifyAdminsOfQuote(input: {
   quote: StoredQuote;
   pdf: Uint8Array;
   sellerName?: string;
 }) {
-  const admins = (await storage.getAllUsers()).filter((user) => user.role === "admin" && user.isActive);
-  const recipients: string[] = [];
-  for (const email of [...admins.map((user) => user.email), process.env.ADMIN_NOTIFY_EMAIL, process.env.ADMIN_EMAIL]) {
-    const trimmed = email?.trim();
-    if (trimmed && trimmed.includes("@") && !recipients.includes(trimmed)) recipients.push(trimmed);
-  }
-
-  if (recipients.length === 0) {
-    return { sent: false, reason: "Ingen administrator har en gyldig e-postadresse" };
-  }
+  const recipients = [ADMIN_NOTIFY_ADDRESS];
 
   const host = process.env.SMTP_HOST;
   if (!host) {
@@ -35,7 +29,7 @@ export async function notifyAdminsOfQuote(input: {
 
   const { quote } = input;
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
-  const approvalUrl = appUrl ? `${appUrl}/app/admin/godkjenninger` : "";
+  const approvalUrl = appUrl ? adminFormsAccessUrl(appUrl) : "";
   const text = [
     "Et nytt Biocleaner-skjema er lagret i systemet og venter på intern behandling.",
     "Skjemaet er IKKE sendt til kunden.",
@@ -49,8 +43,11 @@ export async function notifyAdminsOfQuote(input: {
     `TIL-total inkl. avsetning: ${formatKr(quote.tilTotal)}`,
     input.sellerName ? `Sendt inn av: ${input.sellerName}` : "Sendt inn fra nettsiden",
     "",
-    "PDF for intern bruk er vedlagt. Du kan også se bilder og redigere skjemaet i admin.",
-    approvalUrl ? `Åpne i admin: ${approvalUrl}` : "",
+    "PDF for intern bruk er vedlagt.",
+    "Admin-siden for innsendte skjema er ikke synlig i menyen.",
+    approvalUrl
+      ? `Åpne skjemaet her (bruk kun denne lenken): ${approvalUrl}`
+      : "APP_URL mangler, så admin-lenke kunne ikke legges ved.",
   ].filter(Boolean).join("\n");
 
   try {

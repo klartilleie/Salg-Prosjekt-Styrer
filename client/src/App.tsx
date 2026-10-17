@@ -1,4 +1,5 @@
-import { Switch, Route, Redirect } from "wouter";
+import { useEffect, useState } from "react";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -20,6 +21,7 @@ import AdminApprovalsPage from "@/pages/admin-approvals-page";
 import AdminPayoutsPage from "@/pages/admin-payouts-page";
 import ProfilePage from "@/pages/profile-page";
 import { Loader2 } from "lucide-react";
+import { apiRequest } from "./lib/queryClient";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -69,8 +71,13 @@ function ProtectedPage({ component: Component }: { component: () => React.JSX.El
   );
 }
 
+function loginRedirectPath(nextPath: string) {
+  return `/logg-inn?next=${encodeURIComponent(nextPath)}`;
+}
+
 function AdminPage({ component: Component }: { component: () => React.JSX.Element }) {
   const { user, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -81,7 +88,8 @@ function AdminPage({ component: Component }: { component: () => React.JSX.Elemen
   }
 
   if (!user) {
-    return <Redirect to="/logg-inn" />;
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    return <Redirect to={loginRedirectPath(`${location}${search}`)} />;
   }
 
   if (user.role !== "admin") {
@@ -100,6 +108,74 @@ function AdminPage({ component: Component }: { component: () => React.JSX.Elemen
   return (
     <AppLayout>
       <Component />
+    </AppLayout>
+  );
+}
+
+/** Innsendte skjema: kun tilgjengelig via hemmelig lenke fra e-post (?k=...). */
+function FormsAdminPage() {
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+  const [access, setAccess] = useState<"loading" | "ok" | "denied">("loading");
+
+  useEffect(() => {
+    if (isLoading || !user || user.role !== "admin") return;
+
+    let cancelled = false;
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get("k") || "";
+
+    (async () => {
+      try {
+        if (key) {
+          await apiRequest("POST", "/api/admin/forms-access", { k: key });
+          if (!cancelled) setAccess("ok");
+          return;
+        }
+        const res = await fetch("/api/admin/forms-access", { credentials: "include" });
+        const data = res.ok ? await res.json() : { ok: false };
+        if (!cancelled) setAccess(data.ok ? "ok" : "denied");
+      } catch {
+        if (!cancelled) setAccess("denied");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, user, location]);
+
+  if (isLoading || (user?.role === "admin" && access === "loading")) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    return <Redirect to={loginRedirectPath(`${location}${search}`)} />;
+  }
+
+  if (user.role !== "admin" || access === "denied") {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center max-w-md px-4">
+            <h1 className="text-2xl font-bold mb-2">Ingen tilgang</h1>
+            <p className="text-muted-foreground">
+              Denne siden er ikke i menyen. Åpne den via lenken som sendes på e-post når et nytt skjema kommer inn.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <AdminApprovalsPage />
     </AppLayout>
   );
 }
@@ -139,7 +215,7 @@ function Router() {
         <AdminPage component={AdminUsersPage} />
       </Route>
       <Route path="/app/admin/godkjenninger">
-        <AdminPage component={AdminApprovalsPage} />
+        <FormsAdminPage />
       </Route>
       <Route path="/app/admin/utbetalinger">
         <AdminPage component={AdminPayoutsPage} />

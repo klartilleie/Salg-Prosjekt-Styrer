@@ -51,7 +51,10 @@ export default function AuthPage() {
   });
 
   if (user) {
-    setLocation("/app");
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+    setLocation(safeNext);
     return null;
   }
 
