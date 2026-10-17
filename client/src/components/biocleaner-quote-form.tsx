@@ -15,7 +15,6 @@ import {
   GRAVING_OPTIONS,
   ETTERPOLLERINGSKUM,
   ETTERPOLLERING_PLUS,
-  FRAKT_REGIONS,
   OTHER_PRICES,
   PRICE_LIST_DATE,
   STYRESKAP_OPTIONS,
@@ -52,8 +51,6 @@ const defaultValues: QuoteFormData = {
   styreskapSize: "small",
   utehus: "nei",
   gravingPrice: DEFAULT_PRICES.graving,
-  fraktPrice: DEFAULT_PRICES.frakt,
-  fraktRegion: "",
   pumpekumme: "nei",
   airPumpe: "none",
   pumpeKjemi: "nei",
@@ -353,29 +350,6 @@ export function BiocleanerQuoteForm() {
                       ))}
                     </SelectContent>
                   </Select>
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="fraktRegion" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Frakt fra nærmeste lager</FormLabel>
-                  <Select value={field.value || undefined} onValueChange={field.onChange}>
-                    <FormControl><SelectTrigger data-testid="select-frakt-region"><SelectValue placeholder="Velg region" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {FRAKT_REGIONS.map((region) => (
-                        <SelectItem key={region.id} value={region.id}>{region.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="fraktPrice" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fraktbeløp eks. mva</FormLabel>
-                  <FormControl>
-                    <Input type="number" min={0} value={field.value} onChange={(event) => field.onChange(Number(event.target.value))} />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">Frakt beregnes fra lager og legges inn her. For anlegg over 50 PE avtales frakt og installasjon særskilt.</p>
                 </FormItem>
               )} />
             </div>

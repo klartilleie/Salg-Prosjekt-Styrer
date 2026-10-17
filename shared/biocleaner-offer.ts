@@ -60,12 +60,6 @@ export const GRAVING_OPTIONS = [
   { value: 105000, label: "105 000 kr" },
 ] as const;
 
-export const FRAKT_REGIONS = [
-  { id: "trondheim-nord", label: "Trondheim og nordover, lager Bodø" },
-  { id: "sor-trondheim", label: "Sør for Trondheim, lager Bergen" },
-  { id: "ostlandet", label: "Østlandet, lager Bergen" },
-] as const;
-
 export const OTHER_PRICES = {
   pumpekumme: 50508,
   air60: 4761,
@@ -125,11 +119,6 @@ export const quoteFormSchema = z.object({
   gravingPrice: z.number().refine(
     (value) => GRAVING_OPTIONS.some((option) => option.value === value),
     "Velg gravepris",
-  ),
-  fraktPrice: z.number().min(0, "Frakt kan ikke være negativ").max(2_000_000),
-  fraktRegion: z.string().refine(
-    (value) => FRAKT_REGIONS.some((region) => region.id === value),
-    "Velg fraktregion",
   ),
   pumpekumme: z.enum(["nei", "ja"]),
   airPumpe: z.enum(["none", "60", "80", "120"]),
@@ -235,8 +224,7 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   const model = BIOCLEANER_MODELS.find((item) => item.id === input.biocleanerModel);
   const type = BIOCLEANER_TYPES.find((item) => item.id === input.biocleanerType);
   const styreskap = STYRESKAP_OPTIONS.find((item) => item.id === input.styreskapSize);
-  const region = FRAKT_REGIONS.find((item) => item.id === input.fraktRegion);
-  if (!model || !type || !styreskap || !region) {
+  if (!model || !type || !styreskap) {
     throw new Error("Ugyldig tilbud");
   }
   if (input.biocleanerType === "optima" && model.optimaPrice == null) {
@@ -276,7 +264,7 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
   add("Søknad om dispensasjon", DEFAULT_PRICES.soknadDispensasjon);
   add("Innregulering/oppstart/montering", DEFAULT_PRICES.innregulering);
   add("Graving med singel", input.gravingPrice);
-  add(`Frakt (${region.label})`, input.fraktPrice);
+  add("Frakt", DEFAULT_PRICES.frakt);
 
   if (input.serviceKjoring !== "none") {
     const perVisit = input.serviceKjoring === "innen50" ? OTHER_PRICES.serviceInnen50 : OTHER_PRICES.serviceOver50;
@@ -301,7 +289,7 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
     info.push("Fergekostnader ved service kommer i tillegg.");
   }
   if (model.group === "large") {
-    info.push("For anlegg over 50 PE beregnes frakt og installasjon i hvert enkelt tilfelle.");
+    info.push("For anlegg over 50 PE beregnes installasjon i hvert enkelt tilfelle.");
   }
   info.push("Offentlige saksbehandlingsgebyrer faktureres fra kommunen til kunden.");
 
@@ -352,8 +340,6 @@ export function previewQuote(input: Partial<QuoteFormData>): StoredQuote | null 
     styreskapSize: input.styreskapSize || "small",
     utehus: input.utehus || "nei",
     gravingPrice: input.gravingPrice ?? DEFAULT_PRICES.graving,
-    fraktPrice: Number.isFinite(input.fraktPrice) ? input.fraktPrice : DEFAULT_PRICES.frakt,
-    fraktRegion: input.fraktRegion || FRAKT_REGIONS[0].id,
     pumpekumme: input.pumpekumme || "nei",
     airPumpe: input.airPumpe || "none",
     pumpeKjemi: input.pumpeKjemi || "nei",
