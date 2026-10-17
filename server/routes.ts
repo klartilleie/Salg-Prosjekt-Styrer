@@ -79,9 +79,28 @@ export async function registerRoutes(
     return user.id;
   }
 
-  app.post("/api/quotes", async (req, res) => {
+  async function loadQuotePhotos(customerId: string) {
+    const files = await storage.getAttachmentsByCustomerId(customerId);
+    const photos = [];
+    for (const file of files) {
+      if (!(file.mimeType || "").startsWith("image/")) continue;
+      const filename = path.basename(file.fileUrl);
+      const filePath = path.resolve(uploadDir, filename);
+      if (!filePath.startsWith(path.resolve(uploadDir)) || !fs.existsSync(filePath)) continue;
+      photos.push({
+        bytes: new Uint8Array(fs.readFileSync(filePath)),
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+      });
+    }
+    return photos;
+  }
+
+  app.post("/api/quotes", upload.array("photos", 12), async (req, res) => {
     try {
-      const validated = quoteFormSchema.parse(req.body);
+      const rawPayload = typeof req.body?.payload === "string" ? req.body.payload : null;
+      const payload = rawPayload ? JSON.parse(rawPayload) : req.body;
+      const validated = quoteFormSchema.parse(payload);
       const quote = buildStoredQuote(validated);
       const userId = req.isAuthenticated() ? req.user!.id : await websiteInboxUserId();
       const [firstName, ...rest] = validated.customerName.split(/\s+/);
@@ -101,16 +120,43 @@ export async function registerRoutes(
         source: "web",
         status: "pending",
       } as any);
-      const pdf = await renderQuotePdf(quote, "pending");
+
+      const uploaded = Array.isArray(req.files) ? req.files : [];
+      for (const file of uploaded) {
+        if (!(file.mimetype || "").startsWith("image/")) {
+          fs.unlinkSync(file.path);
+          continue;
+        }
+        await storage.createAttachment({
+          customerId: customer.id,
+          fileName: file.originalname,
+          fileUrl: `/api/files/${file.filename}`,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+        });
+      }
+
+      const photos = await loadQuotePhotos(customer.id);
+      const pdf = await renderQuotePdf(quote, "pending", photos);
       const email = await notifyAdminsOfQuote({
         quote,
         pdf,
         sellerName: req.isAuthenticated() ? req.user!.fullName : undefined,
       });
-      res.status(201).json({ ok: true, id: customer.id, emailSent: email.sent, emailReason: email.sent ? undefined : email.reason });
+      res.status(201).json({
+        ok: true,
+        id: customer.id,
+        photoCount: photos.length,
+        emailSent: email.sent,
+        emailReason: email.sent ? undefined : email.reason,
+        sentToCustomer: false,
+      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).send(error.issues[0]?.message || "Ugyldig tilbud");
+      }
+      if (error instanceof SyntaxError) {
+        return res.status(400).send("Ugyldig skjema");
       }
       res.status(400).send(error.message || "Ugyldig tilbud");
     }
@@ -125,9 +171,10 @@ export async function registerRoutes(
       }
       const quote = parseStoredQuote(customer.quotePayload);
       if (!quote) return res.status(404).send("Tilbudet har ingen PDF");
-      const pdf = await renderQuotePdf(quote, customer.status);
+      const photos = await loadQuotePhotos(customer.id);
+      const pdf = await renderQuotePdf(quote, customer.status, photos);
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline; filename=\"tilbud.pdf\"");
+      res.setHeader("Content-Disposition", "inline; filename=\"internt-tilbud.pdf\"");
       res.send(Buffer.from(pdf));
     } catch {
       res.status(500).send("Kunne ikke lage PDF");
@@ -227,9 +274,94 @@ export async function registerRoutes(
   app.get("/api/admin/customers", requireAdmin, async (req, res) => {
     try {
       const customers = await storage.getAllCustomers();
-      res.json(customers);
+      const withPhotos = [];
+      for (const customer of customers) {
+        const attachments = await storage.getAttachmentsByCustomerId(customer.id);
+        withPhotos.push({
+          ...customer,
+          photoCount: attachments.filter((item) => (item.mimeType || "").startsWith("image/")).length,
+          attachments,
+        });
+      }
+      res.json(withPhotos);
     } catch (error) {
       res.status(500).send("Kunne ikke hente kunder");
+    }
+  });
+
+  app.get("/api/admin/customers/:id", requireAdmin, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(String(req.params.id));
+      if (!customer) return res.status(404).send("Kunde ikke funnet");
+      const user = await storage.getUser(customer.userId);
+      const attachments = await storage.getAttachmentsByCustomerId(customer.id);
+      res.json({
+        ...customer,
+        user: user ? { fullName: user.fullName, username: user.username } : undefined,
+        attachments,
+        quote: parseStoredQuote(customer.quotePayload),
+      });
+    } catch {
+      res.status(500).send("Kunne ikke hente skjema");
+    }
+  });
+
+  app.patch("/api/admin/customers/:id/quote", requireAdmin, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(String(req.params.id));
+      if (!customer) return res.status(404).send("Kunde ikke funnet");
+      const validated = quoteFormSchema.parse(req.body);
+      const quote = buildStoredQuote(validated);
+      const [firstName, ...rest] = validated.customerName.split(/\s+/);
+      const updated = await storage.updateCustomer(customer.id, {
+        firstName,
+        lastName: rest.join(" ") || "-",
+        email: validated.customerEmail,
+        phone: validated.customerPhone,
+        address: validated.customerAddress,
+        postalCode: validated.postalCode,
+        city: validated.city,
+        municipality: validated.municipality || null,
+        saleAmount: quote.total.toFixed(2),
+        notes: quoteNotes(quote),
+        quotePayload: JSON.stringify(quote),
+      });
+      res.json({
+        ...updated,
+        quote,
+        attachments: await storage.getAttachmentsByCustomerId(customer.id),
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).send(error.issues[0]?.message || "Ugyldig skjema");
+      }
+      res.status(400).send(error.message || "Kunne ikke lagre endringer");
+    }
+  });
+
+  app.post("/api/admin/customers/:id/attachments", requireAdmin, upload.array("photos", 12), async (req, res) => {
+    try {
+      const customerId = String(req.params.id);
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) return res.status(404).send("Kunde ikke funnet");
+      const uploaded = Array.isArray(req.files) ? req.files : [];
+      const created = [];
+      for (const file of uploaded) {
+        if (!(file.mimetype || "").startsWith("image/")) {
+          fs.unlinkSync(file.path);
+          continue;
+        }
+        created.push(await storage.createAttachment({
+          customerId,
+          fileName: file.originalname,
+          fileUrl: `/api/files/${file.filename}`,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+        }));
+      }
+      res.status(201).json(created);
+    } catch {
+      res.status(500).send("Kunne ikke lagre bilder");
     }
   });
 
@@ -418,6 +550,11 @@ export async function registerRoutes(
       const filePath = path.resolve(uploadDir, filename);
       if (!filePath.startsWith(path.resolve(uploadDir)) || !fs.existsSync(filePath)) {
         return res.status(404).send("Filen finnes ikke");
+      }
+      if ((attachment.mimeType || "").startsWith("image/") && req.query.download !== "1") {
+        res.setHeader("Content-Type", attachment.mimeType || "image/jpeg");
+        res.setHeader("Content-Disposition", `inline; filename="${attachment.fileName}"`);
+        return res.sendFile(filePath);
       }
       res.download(filePath, attachment.fileName);
     } catch {

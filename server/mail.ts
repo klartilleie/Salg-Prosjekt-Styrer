@@ -37,7 +37,8 @@ export async function notifyAdminsOfQuote(input: {
   const appUrl = process.env.APP_URL?.replace(/\/$/, "");
   const approvalUrl = appUrl ? `${appUrl}/app/admin/godkjenninger` : "";
   const text = [
-    "Et nytt Biocleaner-tilbud er sendt inn og venter på godkjenning og utskrift.",
+    "Et nytt Biocleaner-skjema er lagret i systemet og venter på intern behandling.",
+    "Skjemaet er IKKE sendt til kunden.",
     "",
     `Kunde: ${quote.customer.name}`,
     `Adresse: ${quote.customer.address}, ${quote.customer.postalCode} ${quote.customer.city}`,
@@ -48,15 +49,15 @@ export async function notifyAdminsOfQuote(input: {
     `TIL-total inkl. avsetning: ${formatKr(quote.tilTotal)}`,
     input.sellerName ? `Sendt inn av: ${input.sellerName}` : "Sendt inn fra nettsiden",
     "",
-    "PDF-tilbudet er vedlagt og kan skrives ut.",
-    approvalUrl ? `Godkjenninger: ${approvalUrl}` : "",
+    "PDF for intern bruk er vedlagt. Du kan også se bilder og redigere skjemaet i admin.",
+    approvalUrl ? `Åpne i admin: ${approvalUrl}` : "",
   ].filter(Boolean).join("\n");
 
   try {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@localhost",
       to: recipients,
-      subject: `Nytt tilbud til godkjenning: ${quote.customer.name}`,
+      subject: `Nytt skjema til intern behandling: ${quote.customer.name}`,
       text,
       attachments: [
         {

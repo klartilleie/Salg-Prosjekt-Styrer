@@ -66,7 +66,7 @@ const userMenuItems = [
 
 const adminMenuItems = [
   {
-    title: "Godkjenninger",
+    title: "Innsendte skjema",
     url: "/app/admin/godkjenninger",
     icon: CheckSquare,
   },

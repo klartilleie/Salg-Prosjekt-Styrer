@@ -2,9 +2,15 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatKr, type StoredQuote } from "@shared/biocleaner-offer";
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Venter på godkjenning",
-  approved: "Godkjent",
+  pending: "Venter på intern behandling",
+  approved: "Godkjent internt",
   rejected: "Avvist",
+};
+
+export type QuotePdfPhoto = {
+  bytes: Uint8Array;
+  fileName: string;
+  mimeType?: string | null;
 };
 
 function wrapText(text: string, font: { widthOfTextAtSize: (value: string, size: number) => number }, size: number, maxWidth: number) {
@@ -26,7 +32,11 @@ function wrapText(text: string, font: { widthOfTextAtSize: (value: string, size:
   return lines.length ? lines : [""];
 }
 
-export async function renderQuotePdf(quote: StoredQuote, status = "pending") {
+export async function renderQuotePdf(
+  quote: StoredQuote,
+  status = "pending",
+  photos: QuotePdfPhoto[] = [],
+) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -52,7 +62,8 @@ export async function renderQuotePdf(quote: StoredQuote, status = "pending") {
   };
 
   draw("Smart Hjem AS", 11, bold, rgb(0.2, 0.35, 0.28));
-  draw("Tilbud på Biocleaner renseanlegg", 20, bold);
+  draw("Internt arbeidsdokument - ikke sendt til kunde", 10, bold, rgb(0.55, 0.2, 0.15));
+  draw("Biocleaner-skjema til tilbud", 20, bold);
   y -= 4;
   draw(`Prisliste fra ${quote.priceListDate}. Gyldig i ${quote.validDays} dager. Status: ${STATUS_LABEL[status] || status}`, 10, regular, rgb(0.3, 0.33, 0.38));
   y -= 8;
@@ -113,7 +124,36 @@ export async function renderQuotePdf(quote: StoredQuote, status = "pending") {
   draw("Tilbudet forutsetter godkjent utslippstillatelse fra kommunen basert på prosjektert plassering.", 9, regular, rgb(0.3, 0.33, 0.38));
   draw("Endelige vilkår, garantier og fremdriftsplan står i utførelseskontrakten.", 9, regular, rgb(0.3, 0.33, 0.38));
   y -= 10;
-  draw("Skjemaet er sendt til administrator for godkjenning og utskrift. Administrator er varslet på e-post.", 9, bold);
+  draw("Dette dokumentet er lagret for administrator. Det er ikke sendt til kunden.", 9, bold, rgb(0.55, 0.2, 0.15));
+
+  if (photos.length > 0) {
+    y -= 12;
+    draw(`Bilder fra befaring (${photos.length})`, 12, bold);
+    for (const photo of photos) {
+      const mime = (photo.mimeType || "").toLowerCase();
+      let image;
+      try {
+        if (mime.includes("png")) image = await pdf.embedPng(photo.bytes);
+        else if (mime.includes("jpeg") || mime.includes("jpg") || mime === "image/jpg") image = await pdf.embedJpg(photo.bytes);
+        else {
+          draw(`- ${photo.fileName} (kunne ikke vise i PDF)`, 9, regular, rgb(0.3, 0.33, 0.38));
+          continue;
+        }
+      } catch {
+        draw(`- ${photo.fileName} (kunne ikke vise i PDF)`, 9, regular, rgb(0.3, 0.33, 0.38));
+        continue;
+      }
+      const maxW = contentWidth;
+      const maxH = 220;
+      const scale = Math.min(maxW / image.width, maxH / image.height, 1);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      ensure(height + 24);
+      draw(photo.fileName, 9, regular, rgb(0.3, 0.33, 0.38));
+      page.drawImage(image, { x: margin, y: y - height, width, height });
+      y -= height + 12;
+    }
+  }
 
   return pdf.save();
 }

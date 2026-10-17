@@ -161,6 +161,7 @@ export type QuoteLine = { label: string; amount: number };
 
 export type StoredQuote = {
   version: 1;
+  formInput?: QuoteFormData;
   customer: {
     name: string;
     address: string;
@@ -295,6 +296,7 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
 
   return {
     version: 1,
+    formInput: input,
     customer: {
       name: input.customerName,
       address: input.customerAddress,

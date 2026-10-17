@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calculator, Check, Loader2, Mail, MapPin, Phone, User } from "lucide-react";
+import { Camera, Calculator, Check, ImagePlus, Loader2, Mail, MapPin, Phone, User, X } from "lucide-react";
 import {
   BIOCLEANER_MODELS,
   BIOCLEANER_TYPES,
@@ -20,11 +20,15 @@ import {
   STYRESKAP_OPTIONS,
   UTEHUS_PRICE,
   UV_LAMPE,
+  biocleanerPrice,
   formatKr,
   previewQuote,
   quoteFormSchema,
+  serviceMonthlyInclVat,
   type QuoteFormData,
 } from "@shared/biocleaner-offer";
+
+type PhotoItem = { id: string; file: File; previewUrl: string };
 
 interface AddressSuggestion {
   adressetekst: string;
@@ -67,12 +71,13 @@ const defaultValues: QuoteFormData = {
 };
 
 export function BiocleanerQuoteForm() {
-  const [sent, setSent] = useState<{ emailSent: boolean; emailReason?: string } | null>(null);
+  const [sent, setSent] = useState<{ emailSent: boolean; emailReason?: string; photoCount?: number } | null>(null);
   const [addressQuery, setAddressQuery] = useState("");
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
 
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteFormSchema),
@@ -123,25 +128,56 @@ export function BiocleanerQuoteForm() {
     setAddressSuggestions([]);
   };
 
+  const addPhotos = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const next = [...photos];
+    for (const file of Array.from(fileList)) {
+      if (!file.type.startsWith("image/")) continue;
+      if (next.length >= 12) break;
+      next.push({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+    setPhotos(next);
+  };
+
+  const removePhoto = (id: string) => {
+    setPhotos((current) => {
+      const target = current.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((item) => item.id !== id);
+    });
+  };
+
   const onSubmit = async (data: QuoteFormData) => {
     setSubmitError("");
     setIsSubmitting(true);
     try {
+      const body = new FormData();
+      body.append("payload", JSON.stringify(data));
+      for (const photo of photos) body.append("photos", photo.file, photo.file.name);
       const res = await fetch("/api/quotes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(data),
+        body,
       });
       const raw = await res.text();
-      const body = raw ? (() => { try { return JSON.parse(raw); } catch { return raw; } })() : null;
+      const parsed = raw ? (() => { try { return JSON.parse(raw); } catch { return raw; } })() : null;
       if (!res.ok) {
-        const message = typeof body === "string" ? body : body?.message;
-        throw new Error(message || "Kunne ikke sende tilbudet");
+        const message = typeof parsed === "string" ? parsed : parsed?.message;
+        throw new Error(message || "Kunne ikke sende skjemaet");
       }
-      setSent({ emailSent: Boolean(body?.emailSent), emailReason: body?.emailReason });
+      setSent({
+        emailSent: Boolean(parsed?.emailSent),
+        emailReason: parsed?.emailReason,
+        photoCount: Number(parsed?.photoCount || photos.length),
+      });
+      photos.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+      setPhotos([]);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Kunne ikke sende tilbudet");
+      setSubmitError(error instanceof Error ? error.message : "Kunne ikke sende skjemaet");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,18 +190,20 @@ export function BiocleanerQuoteForm() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Check className="h-6 w-6" />
           </div>
-          <h2 className="text-2xl font-semibold">Tilbudet er sendt til godkjenning</h2>
+          <h2 className="text-2xl font-semibold">Skjemaet er lagret for admin</h2>
           <p className="text-muted-foreground">
             {preview ? `FRA-totalpris ${formatKr(preview.total)}. ` : ""}
-            Administrator kan skrive ut tilbudet som PDF. Tilbudet er gyldig i 30 dager.
+            Skjemaet er lagret i systemet så administrator kan sjekke utfylling, se bilder og laste ned PDF.
+            Det er ikke sendt til kunden.
           </p>
           <p className="text-sm text-muted-foreground">
+            {sent.photoCount ? `${sent.photoCount} bilde(r) er lagret. ` : ""}
             {sent.emailSent
               ? "Administrator er varslet på e-post."
-              : `E-postvarselet ble ikke sendt${sent.emailReason ? `: ${sent.emailReason}` : ""}. Tilbudet ligger likevel til godkjenning.`}
+              : `E-postvarselet ble ikke sendt${sent.emailReason ? `: ${sent.emailReason}` : ""}. Skjemaet ligger likevel i admin.`}
           </p>
           <Button variant="outline" onClick={() => { form.reset(defaultValues); setAddressQuery(""); setSent(null); }}>
-            Lag et nytt tilbud
+            Lag et nytt skjema
           </Button>
         </CardContent>
       </Card>
@@ -260,11 +298,11 @@ export function BiocleanerQuoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår.</p>
+            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår. Når du velger tank, fylles anleggspris og service inn automatisk.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="biocleanerModel" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Biocleaner-modell</FormLabel>
+                  <FormLabel>Biocleaner-modell / tank</FormLabel>
                   <Select value={field.value || undefined} onValueChange={field.onChange}>
                     <FormControl><SelectTrigger data-testid="select-biocleaner-model"><SelectValue placeholder="Velg modell" /></SelectTrigger></FormControl>
                     <SelectContent>
@@ -312,6 +350,22 @@ export function BiocleanerQuoteForm() {
                 </FormItem>
               )} />
             </div>
+
+            {model && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4" data-testid="auto-fill-summary">
+                <p className="text-sm font-medium">Automatisk utfylt for {model.name}</p>
+                <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+                  <p>Anlegg ({values.biocleanerType}): {formatKr(biocleanerPrice(model.id, values.biocleanerType))}</p>
+                  <p data-testid="text-service-autofill">
+                    Service: {serviceMonthlyInclVat(model.id) != null
+                      ? `${formatKr(serviceMonthlyInclVat(model.id)!)} per måned inkl. mva`
+                      : "ikke oppgitt"}
+                  </p>
+                  <p>Frakt: {formatKr(DEFAULT_PRICES.frakt)} (fast)</p>
+                  <p>Styreskap Small: {formatKr(STYRESKAP_OPTIONS[0].defaultPrice)}</p>
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <FormField control={form.control} name="styreskapSize" render={({ field }) => (
@@ -470,7 +524,76 @@ export function BiocleanerQuoteForm() {
           </CardContent>
         </Card>
 
-        <FormField control={form.control} name="offerComments" render={({ field }) => (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Camera className="h-4 w-4" />
+              Bilder fra befaring
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Ta bilder eller last opp bilder av tomt, eksisterende anlegg, tilkomst og andre forhold.
+              Administrator bruker bildene til å kontrollere utfyllingen og lage et godt tilbud.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" asChild>
+                <label className="cursor-pointer">
+                  <Camera className="mr-2 h-4 w-4" />
+                  Ta bilde
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    data-testid="input-photo-camera"
+                    onChange={(event) => {
+                      addPhotos(event.target.files);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </Button>
+              <Button type="button" variant="outline" asChild>
+                <label className="cursor-pointer">
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  Last opp bilder
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    data-testid="input-photo-upload"
+                    onChange={(event) => {
+                      addPhotos(event.target.files);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </Button>
+            </div>
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="relative overflow-hidden rounded-md border">
+                    <img src={photo.previewUrl} alt={photo.file.name} className="h-32 w-full object-cover" />
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1 rounded-full bg-background/90 p-1"
+                      onClick={() => removePhoto(photo.id)}
+                      aria-label="Fjern bilde"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <p className="truncate px-2 py-1 text-xs text-muted-foreground">{photo.file.name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+            <FormField control={form.control} name="offerComments" render={({ field }) => (
           <FormItem>
             <FormLabel>Kommentarer til tilbudet</FormLabel>
             <FormControl><Textarea className="min-h-24" placeholder="Eventuelle tilleggsopplysninger eller kommentarer..." {...field} /></FormControl>
@@ -486,7 +609,7 @@ export function BiocleanerQuoteForm() {
             <p><strong>Offentlige gebyrer:</strong> Alle oppgitte priser er eksklusive saksbehandlingsgebyrer fra kommunen. Slike gebyrer faktureres direkte fra kommunen til kunden.</p>
             <p><strong>Forbehold:</strong> Tilbudet forutsetter godkjent utslippstillatelse fra kommunen basert på prosjektert plassering i kartet.</p>
             <p><strong>Kontrakt:</strong> Endelige vilkår, garantier og fremdriftsplan fremkommer i den formelle utførelseskontrakten og ikke i dette tilbudet.</p>
-            <p>Når skjemaet sendes, går tilbudet til administrator for godkjenning og utskrift i PDF. Administrator varsles på e-post.</p>
+            <p><strong>Intern lagring:</strong> Skjemaet lagres i databasen for administrator. Det sendes ikke til kunden. Administrator kan se bilder, redigere utfyllingen og laste ned PDF.</p>
           </CardContent>
         </Card>
 
@@ -494,7 +617,7 @@ export function BiocleanerQuoteForm() {
         <div className="flex justify-end pb-8">
           <Button type="submit" size="lg" className="w-full md:w-auto md:min-w-48" disabled={isSubmitting} data-testid="button-submit-form">
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send til godkjenning
+            Lagre til admin
           </Button>
         </div>
       </form>
