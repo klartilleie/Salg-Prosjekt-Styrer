@@ -17,6 +17,8 @@ import {
   ETTERPOLLERING_PLUS,
   OTHER_PRICES,
   PRICE_LIST_DATE,
+  SERVICE_EXTRA_VISIT_PRICE,
+  SERVICE_INCLUDED_VISITS,
   STYRESKAP_OPTIONS,
   UTEHUS_PRICE,
   UV_LAMPE,
@@ -297,7 +299,7 @@ export function BiocleanerQuoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Basic utgår. Når du velger tank, fylles anleggspris inn automatisk.</p>
+            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE} (+13 %). Månedlig service er fast og økes ikke. Basic utgår. Når du velger tank, fylles anleggspris inn automatisk.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="biocleanerModel" render={({ field }) => (
                 <FormItem>
@@ -464,10 +466,21 @@ export function BiocleanerQuoteForm() {
             <FormField control={form.control} name="serviceKjoring" render={({ field }) => (
               <FormItem>
                 <FormLabel>Kjøring ved service, per besøk</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value !== "none" && (form.getValues("serviceBesok") || 0) < SERVICE_INCLUDED_VISITS) {
+                      form.setValue("serviceBesok", SERVICE_INCLUDED_VISITS);
+                    }
+                  }}
+                >
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
                     <SelectItem value="none">Ikke inkludert</SelectItem>
+                    <SelectItem value="inkl">
+                      Inkludert ({SERVICE_INCLUDED_VISITS} besøk, deretter {formatKr(SERVICE_EXTRA_VISIT_PRICE)} pr ekstra)
+                    </SelectItem>
                     <SelectItem value="innen50">Inntil 50 km ({formatKr(OTHER_PRICES.serviceInnen50)})</SelectItem>
                     <SelectItem value="over50">Over 50 km ({formatKr(OTHER_PRICES.serviceOver50)})</SelectItem>
                   </SelectContent>
@@ -476,10 +489,26 @@ export function BiocleanerQuoteForm() {
             )} />
             <FormField control={form.control} name="serviceBesok" render={({ field }) => (
               <FormItem>
-                <FormLabel>Antall servicebesøk</FormLabel>
+                <FormLabel>Antall servicebesøk (min. {SERVICE_INCLUDED_VISITS})</FormLabel>
                 <FormControl>
-                  <Input type="number" min={0} max={12} value={field.value} onChange={(event) => field.onChange(parseInt(event.target.value, 10) || 0)} disabled={values.serviceKjoring === "none"} />
+                  <Input
+                    type="number"
+                    min={SERVICE_INCLUDED_VISITS}
+                    max={12}
+                    value={field.value}
+                    onChange={(event) => {
+                      const raw = parseInt(event.target.value, 10);
+                      const next = Number.isFinite(raw) ? raw : SERVICE_INCLUDED_VISITS;
+                      field.onChange(Math.max(SERVICE_INCLUDED_VISITS, next));
+                    }}
+                    disabled={values.serviceKjoring === "none"}
+                  />
                 </FormControl>
+                {values.serviceKjoring === "inkl" && values.serviceBesok > SERVICE_INCLUDED_VISITS && (
+                  <p className="text-xs text-muted-foreground">
+                    {values.serviceBesok - SERVICE_INCLUDED_VISITS} ekstra besøk × {formatKr(SERVICE_EXTRA_VISIT_PRICE)}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )} />

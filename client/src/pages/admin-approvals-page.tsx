@@ -88,9 +88,30 @@ function emptyForm(): QuoteFormData {
   };
 }
 
+function nearestGravingPrice(value: number) {
+  return GRAVING_OPTIONS.reduce((best, option) =>
+    Math.abs(option.value - value) < Math.abs(best - value) ? option.value : best,
+  GRAVING_OPTIONS[0].value);
+}
+
+function normalizeFormInput(input: QuoteFormData): QuoteFormData {
+  const serviceKjoring = ["none", "inkl", "innen50", "over50"].includes(input.serviceKjoring)
+    ? input.serviceKjoring
+    : "none";
+  const serviceBesok = serviceKjoring === "none"
+    ? input.serviceBesok
+    : Math.max(2, input.serviceBesok || 2);
+  return {
+    ...input,
+    gravingPrice: nearestGravingPrice(input.gravingPrice),
+    serviceKjoring,
+    serviceBesok,
+  };
+}
+
 function formFromCustomer(customer: CustomerWithMeta): QuoteFormData {
   const quote = parseStoredQuote(customer.quotePayload);
-  if (quote?.formInput) return { ...emptyForm(), ...quote.formInput };
+  if (quote?.formInput) return normalizeFormInput({ ...emptyForm(), ...quote.formInput });
   if (!quote) {
     return {
       ...emptyForm(),
