@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Prisliste gyldig fra denne datoen (enhetspriser eks. mva, +13 % fra forrige liste). */
+/** Prisliste gyldig fra denne datoen. Utstyr og gebyrer er justert fra 2025-listen og avrundet til hele kroner. */
 export const PRICE_LIST_DATE = "01.10.2026";
 export const PRICE_INCREASE_FACTOR = 1.13;
 export const QUOTE_VALID_DAYS = 30;
@@ -18,13 +18,15 @@ export function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Juster prislistepris med 13 %. Service-abonnement holdes utenfor. */
+/** Juster prislistepris med 13 % og avrund til nærmeste hele krone. Ingen øre. */
 function listPrice(base2025: number): number;
 function listPrice(base2025: null): null;
 function listPrice(base2025: number | null): number | null;
 function listPrice(base2025: number | null): number | null {
   if (base2025 == null) return null;
-  return roundMoney(base2025 * PRICE_INCREASE_FACTOR);
+  const ore = Math.round(base2025 * 100);
+  const percent = Math.round(PRICE_INCREASE_FACTOR * 100);
+  return Math.round((ore * percent) / 10000);
 }
 
 const BASE_MODELS = [
@@ -86,13 +88,11 @@ export const UTEHUS_PRICE = listPrice(10000);
 
 const GRAVING_BASE = [25000, 35000, 45000, 55000, 65000, 75000, 85000, 95000, 105000] as const;
 
-export const GRAVING_OPTIONS = GRAVING_BASE.map((value) => {
-  const adjusted = listPrice(value);
-  return {
-    value: adjusted,
-    label: `${adjusted.toLocaleString("nb-NO")} kr`,
-  };
-});
+/** Graving med singel følger ikke prisøkningen. */
+export const GRAVING_OPTIONS = GRAVING_BASE.map((value) => ({
+  value,
+  label: `${value.toLocaleString("nb-NO")} kr`,
+}));
 
 export const OTHER_PRICES = {
   pumpekumme: listPrice(50508),
@@ -128,8 +128,8 @@ export const DEFAULT_PRICES = {
   soknadUtslipp: listPrice(12500),
   soknadDispensasjon: listPrice(7500),
   innregulering: listPrice(16900),
-  graving: listPrice(25000),
-  frakt: listPrice(6200),
+  graving: 25000,
+  frakt: 6200,
 } as const;
 
 const SIZE_OPTIONS = ["none", "small", "medium", "large"] as const;
@@ -267,7 +267,7 @@ function serviceKjoringLines(input: QuoteFormData): QuoteLine[] {
     return [
       {
         label: `Kjøring service, ${extras} ekstra besøk utover ${SERVICE_INCLUDED_VISITS}`,
-        amount: roundMoney(extras * SERVICE_EXTRA_VISIT_PRICE),
+        amount: Math.round(extras * SERVICE_EXTRA_VISIT_PRICE),
       },
     ];
   }
@@ -277,7 +277,7 @@ function serviceKjoringLines(input: QuoteFormData): QuoteLine[] {
   return [
     {
       label: `Kjøring service, ${distance} x ${visits} besøk`,
-      amount: roundMoney(perVisit * visits),
+      amount: Math.round(perVisit * visits),
     },
   ];
 }
@@ -295,7 +295,7 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
 
   const lines: QuoteLine[] = [];
   const add = (label: string, amount: number) => {
-    lines.push({ label, amount: roundMoney(amount) });
+    lines.push({ label, amount: Math.round(amount) });
   };
 
   const plantPrice = biocleanerPrice(model.id, type.id);
@@ -338,12 +338,12 @@ export function buildStoredQuote(input: QuoteFormData): StoredQuote {
     add(`Aluminiumsfat ${input.aluminiumFatLiter} liter`, input.aluminiumFatLiter * OTHER_PRICES.aluminiumFatPerLiter);
   }
 
-  const sum = roundMoney(lines.reduce((total, line) => total + line.amount, 0));
-  const mva = roundMoney(sum * 0.25);
-  const total = roundMoney(sum + mva);
+  const sum = lines.reduce((total, line) => total + line.amount, 0);
+  const total = Math.round(sum * 1.25);
+  const mva = total - sum;
   const monthlyService = serviceMonthlyInclVat(model.id);
   const info = [
-    `Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra ${PRICE_LIST_DATE} (+13 % fra forrige liste). Basic utgår.`,
+    `Enhetsprisene er eks. mva og følger Biocleaner-prislisten fra ${PRICE_LIST_DATE}. Basic utgår.`,
     "Månedlig servicepris er fast og er ikke justert opp med prislisten.",
   ];
   if (input.serviceKjoring === "inkl") {

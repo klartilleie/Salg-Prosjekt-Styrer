@@ -299,7 +299,7 @@ export function BiocleanerQuoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE} (+13 %). Månedlig service er fast og økes ikke. Basic utgår. Når du velger tank, fylles anleggspris inn automatisk.</p>
+            <p className="text-sm text-muted-foreground">Priser eks. mva fra prislisten {PRICE_LIST_DATE}. Månedlig service er fast og økes ikke. Basic utgår. Når du velger tank, fylles anleggspris inn automatisk.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <FormField control={form.control} name="biocleanerModel" render={({ field }) => (
                 <FormItem>
